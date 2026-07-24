@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Responsible {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  telegram  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  webinars Webinar[]
+  tasks    Task[]
+}
+
+model Webinar {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  date          DateTime
+  responsibleId String?
+  email         String?
+  status           String   @default("planned")
+  mtsLinkWebinarId String?
+  mtsLinkUrl       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  responsible   Responsible?  @relation(fields: [responsibleId], references: [id])
+  tasks         Task[]
+}
+
+model Task {
+  id            String   @id @default(cuid())
+  title         String
+  webinarId     String?
+  responsibleId String?
+  taskType      String   @default("general")
+  dueDate       DateTime
+  reminderTime  String?
+  status        String   @default("pending")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  webinar     Webinar?     @relation(fields: [webinarId], references: [id])
+  responsible Responsible?  @relation(fields: [responsibleId], references: [id])
+}
+
+model ArchiveWebinar {
+  id            String   @id @default(cuid())
+  originalId    String
+  title         String
+  description   String?
+  date          DateTime
+  responsibleId String?
+  email         String?
+  status        String
+  archivedAt    DateTime @default(now())
+}
+
+model ArchiveTask {
+  id            String   @id @default(cuid())
+  originalId    String
+  title         String
+  webinarId     String?
+  responsibleId String?
+  taskType      String
+  dueDate       DateTime
+  reminderTime  String?
+  status        String
+  archivedAt    DateTime @default(now())
+}
+
+model Settings {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
+
+model Holiday {
+  id        String   @id @default(cuid())
+  date      DateTime
+  name      String
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - wf-data:/app/data
+    environment:
+      - DATABASE_URL=file:/app/data/wf.db
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  wf-data:
