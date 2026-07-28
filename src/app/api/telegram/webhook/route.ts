@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTelegram, getSettings } from '@/lib/telegram/helpers';
-import { msgHelp, msgToday, msgTasks, msgUpcoming, msgMailings, msgSummary, msgPersonalTasks } from '@/lib/telegram/messages';
+import { msgHelp, msgToday, msgTasks, msgUpcoming, msgSummary, msgPersonalTasks } from '@/lib/telegram/messages';
 import { db } from '@/lib/db';
 
 interface TgUpdate { update_id: number; message?: { message_id: number; chat: { id: number }; text?: string; from?: { id: number; username?: string; first_name?: string } }; }
@@ -54,7 +54,6 @@ export async function POST(req: NextRequest) {
       }
       case '/tasks': response = await msgTasks(); break;
       case '/upcoming': response = await msgUpcoming(); break;
-      case '/mailings': response = await msgMailings(); break;
       case '/summary': response = await msgSummary(); break;
       default: response = '\u2753 \u041d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u0430\u044f \u043a\u043e\u043c\u0430\u043d\u0434\u0430. \u041d\u0430\u043f\u0438\u0448\u0438\u0442\u0435 /help';
     }

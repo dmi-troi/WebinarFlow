@@ -3,7 +3,7 @@ import { fmtDate, fmtDateTime } from './helpers';
 
 export async function msgHelp(): Promise<string> {
   return `
-<b>WebinarFlow Bot</b>\n\n<b>\u041a\u043e\u043c\u0430\u043d\u0434\u044b:</b>\n/today \u2014 \u0437\u0430\u0434\u0430\u0447\u0438 \u043d\u0430 \u0441\u0435\u0433\u043e\u0434\u043d\u044f\n/tasks \u2014 \u0432\u0441\u0435 \u043d\u0435\u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u044b\u0435 \u0437\u0430\u0434\u0430\u0447\u0438\n/upcoming \u2014 \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0438\u0435 \u0432\u0435\u0431\u0438\u043d\u0430\u0440\u044b\n/mailings \u2014 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438 \u043d\u0430 \u044d\u0442\u043e\u0439 \u043d\u0435\u0434\u0435\u043b\u0435\n/summary \u2014 \u043f\u043e\u043b\u043d\u0430\u044f \u0441\u0432\u043e\u0434\u043a\u0430\n/help \u2014 \u044d\u0442\u043e \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435\n`;
+<b>WebinarFlow Bot</b>\n\n<b>\u041a\u043e\u043c\u0430\u043d\u0434\u044b:</b>\n/today \u2014 \u0437\u0430\u0434\u0430\u0447\u0438 \u043d\u0430 \u0441\u0435\u0433\u043e\u0434\u043d\u044f\n/tasks \u2014 \u0432\u0441\u0435 \u043d\u0435\u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u044b\u0435 \u0437\u0430\u0434\u0430\u0447\u0438\n/upcoming \u2014 \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0438\u0435 \u0432\u0435\u0431\u0438\u043d\u0430\u0440\u044b\n/summary \u2014 \u043f\u043e\u043b\u043d\u0430\u044f \u0441\u0432\u043e\u0434\u043a\u0430\n/help \u2014 \u044d\u0442\u043e \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435\n`;
 }
 
 export async function msgToday(): Promise<string> {
@@ -60,32 +60,14 @@ export async function msgUpcoming(): Promise<string> {
   return `\ud83d\udcf9 <b>\u0411\u043b\u0438\u0436\u0430\u0439\u0448\u0438\u0435 \u0432\u0435\u0431\u0438\u043d\u0430\u0440\u044b</b> (${webinars.length})\n\n${lines.join('\n\n')}`;
 }
 
-export async function msgMailings(): Promise<string> {
-  const now = new Date();
-  const weekLater = new Date(now); weekLater.setDate(weekLater.getDate() + 7);
-  const mailings = await db.mailing.findMany({
-    where: { scheduledDate: { gte: now, lte: weekLater }, status: { in: ['planned', 'in_progress'] } },
-    include: { responsible: { select: { name: true } }, webinar: { select: { title: true } } },
-    orderBy: { scheduledDate: 'asc' },
-  });
-  if (mailings.length === 0) return '\ud83d\udce7 <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0438 \u043d\u0430 \u044d\u0442\u043e\u0439 \u043d\u0435\u0434\u0435\u043b\u0435</b>\n\n\u041d\u0435\u0442 \u0437\u0430\u043f\u043b\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0445 \u0440\u0430\u0441\u0441\u044b\u043b\u043e\u043a.';
-  const typeIcon: Record<string, string> = { email: '\ud83d\udce7', sms: '\ud83d\udcf1', push: '\ud83d\udd14', social: '\ud83c\udf10', other: '\ud83d\udce2' };
-  const lines = mailings.map((m) => {
-    const icon = typeIcon[m.type] || '\ud83d\udce2';
-    const who = m.responsible ? ` | <b>${m.responsible.name}</b>` : '';
-    const webinar = m.webinar ? ` | \u043a \u0432\u0435\u0431\u0438\u043d\u0430\u0440\u0443: ${m.webinar.title}` : '';
-    return `${icon} <b>${m.title}</b>${who}\n   \ud83d\udcc5 ${fmtDateTime(m.scheduledDate)}${webinar}`;
-  });
-  return `\ud83d\udce7 <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0438 \u043d\u0430 \u044d\u0442\u043e\u0439 \u043d\u0435\u0434\u0435\u043b\u0435</b> (${mailings.length})\n\n${lines.join('\n\n')}`;
-}
+// msgMailings removed — Mailing model does not exist in schema
 
 export async function msgSummary(): Promise<string> {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-  const [tasks, webinars, mailings] = await Promise.all([
+  const [tasks, webinars] = await Promise.all([
     db.task.findMany({ where: { status: { in: ['pending', 'in_progress'] }, dueDate: { gte: today, lt: tomorrow } }, include: { responsible: { select: { name: true } } } }),
-    db.webinar.findMany({ where: { status: { in: ['planned', 'active'] }, date: { gte: new Date() } }, include: { responsible: { select: { name: true } } }, orderBy: { date: 'asc' }, take: 3 }),
-    db.mailing.findMany({ where: { scheduledDate: { gte: new Date(), lte: new Date(Date.now() + 7 * 86400000) }, status: { in: ['planned', 'in_progress'] } }, orderBy: { scheduledDate: 'asc' }, take: 3 }),
+    db.webinar.findMany({ where: { status: { in: ['planned', 'active'] }, date: { gte: new Date() } }, include: { responsible: { select: { name: true } } }, orderBy: { date: 'asc' }, take: 5 }),
   ]);
   const overdue = await db.task.count({ where: { status: { in: ['pending', 'in_progress'] }, dueDate: { lt: new Date() } } });
   let msg = '\ud83d\udcca <b>\u0421\u0432\u043e\u0434\u043a\u0430 WebinarFlow</b>\n';
@@ -96,9 +78,6 @@ export async function msgSummary(): Promise<string> {
   if (overdue > 0) msg += `\ud83d\udd34 <b>\u041f\u0440\u043e\u0441\u0440\u043e\u0447\u0435\u043d\u043e:</b> ${overdue}\n\n`;
   msg += `\ud83d\udcf9 <b>\u0411\u043b\u0438\u0436\u0430\u0439\u0448\u0438\u0435 \u0432\u0435\u0431\u0438\u043d\u0430\u0440\u044b:</b> ${webinars.length}\n`;
   for (const w of webinars) { const who = w.responsible ? ` (${w.responsible.name})` : ''; msg += `   \u2022 ${w.title} \u2014 ${fmtDate(w.date)}${who}\n`; }
-  msg += '\n';
-  msg += `\ud83d\udce7 <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0438 \u043d\u0430 \u043d\u0435\u0434\u0435\u043b\u0435:</b> ${mailings.length}\n`;
-  for (const m of mailings) { msg += `   \u2022 ${m.title} \u2014 ${fmtDate(m.scheduledDate)}\n`; }
   return msg;
 }
 
