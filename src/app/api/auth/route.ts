@@ -9,8 +9,12 @@ function hashPassword(pw: string) {
 // GET — check if authenticated
 export async function GET(req: NextRequest) {
   const row = await db.settings.findUnique({ where: { key: 'loginPassword' } });
-  // No password set — always allow
-  if (!row?.value) return NextResponse.json({ authenticated: true, noPassword: true });
+  // No password set — set no_password_set cookie so middleware allows requests
+  if (!row?.value) {
+    const res = NextResponse.json({ authenticated: true, noPassword: true });
+    res.cookies.set('wf_session', 'no_password_set', { httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 365, path: '/' });
+    return res;
+  }
 
   const cookie = req.cookies.get('wf_session');
   if (!cookie?.value) return NextResponse.json({ authenticated: false });
@@ -19,12 +23,25 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ authenticated: valid });
 }
 
-// POST — login with password
+// POST — login with password (also sets initial password if none exists)
 export async function POST(req: NextRequest) {
   const { password } = await req.json();
   const row = await db.settings.findUnique({ where: { key: 'loginPassword' } });
 
   if (!row?.value) {
+    // No password configured yet
+    if (password) {
+      // Set initial password and log in
+      await db.settings.upsert({
+        where: { key: 'loginPassword' },
+        update: { value: password },
+        create: { key: 'loginPassword', value: password },
+      });
+      const res = NextResponse.json({ success: true, passwordSet: true });
+      res.cookies.set('wf_session', hashPassword(password + '_salt_wf'), { httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 30, path: '/' });
+      return res;
+    }
+    // No password provided, no password needed — issue pass-through cookie
     const res = NextResponse.json({ success: true, noPassword: true });
     res.cookies.set('wf_session', 'no_password_set', { httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 365, path: '/' });
     return res;
