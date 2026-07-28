@@ -12,7 +12,7 @@ COPY . .
 ENV DATABASE_URL="file:/app/data/wf.db"
 RUN npx prisma generate
 
-# Build Next.js standalone
+# Build Next.js (no standalone — use next start with full node_modules)
 RUN npx next build
 
 # ====== RUNNER STAGE ======
@@ -23,18 +23,17 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Standalone output
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Build output
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-
-# Prisma generated client + schema
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Turso adapter packages
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
+# Full node_modules — no bundling issues, native modules work correctly
+COPY --from=builder /app/node_modules ./node_modules
+
+# Config files needed by next start
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/next.config.ts ./next.config.ts
 
 # Local fallback dir
 RUN mkdir -p /app/data
