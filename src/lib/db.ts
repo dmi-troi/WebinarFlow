@@ -16,12 +16,17 @@ function createDb(): PrismaClient {
       });
       const adapter = new PrismaLibSQL(libsql);
       console.log('[db] Turso connected');
-      return new PrismaClient({ adapter });
+      // datasourceUrl with dummy file: prevents Prisma from
+      // reading DATABASE_URL env (which may be undefined/invalid)
+      return new PrismaClient({
+        adapter,
+        datasourceUrl: 'file:/tmp/turso-dummy.db',
+      });
     } catch (e) {
       console.error('[db] Adapter failed:', e);
     }
   }
-  // Local SQLite fallback — explicit file: URL to avoid libsql:// validation error
+  // Local SQLite fallback
   console.log('[db] Local SQLite');
   return new PrismaClient({ datasourceUrl: 'file:/app/data/wf.db' });
 }
