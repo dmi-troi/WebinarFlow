@@ -24,7 +24,7 @@ async function main() {
     });
     const adapter = new PrismaLibSQL(libsql);
     prisma = new PrismaClient({ adapter });
-    console.log('[server] Turso connected via adapter, url:', process.env.TURSO_DATABASE_URL);
+    console.log('[server] Turso connected via adapter');
   } else {
     prisma = new PrismaClient({ datasourceUrl: 'file:/app/data/wf.db' });
     console.log('[server] Local SQLite');

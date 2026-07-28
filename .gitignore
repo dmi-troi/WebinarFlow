@@ -54,3 +54,10 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# database files
+*.db
+
+# upload/download artifacts
+/upload/
+/download/

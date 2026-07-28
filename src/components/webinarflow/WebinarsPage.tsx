@@ -1,5 +1,4 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
@@ -32,7 +31,9 @@ const statusLabels: Record<string, { label: string; variant: 'default' | 'second
   cancelled: { label: 'Отменён', variant: 'destructive', className: 'bg-red-500 text-white' },
 };
 
-const emptyWebinar = { title: '', description: '', date: '', time: '', responsibleId: '', email: '', status: 'planned' as const };
+type WebinarForm = { title: string; description: string; date: string; time: string; responsibleId: string; email: string; status: Webinar['status'] };
+
+const emptyWebinar: WebinarForm = { title: '', description: '', date: '', time: '', responsibleId: '', email: '', status: 'planned' };
 
 export function WebinarsPage() {
   const refreshKey = useAppStore((s) => s.refreshKey);
@@ -43,7 +44,7 @@ export function WebinarsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editing, setEditing] = useState<Webinar | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyWebinar);
+  const [form, setForm] = useState<WebinarForm>(emptyWebinar);
   const [loading, setLoading] = useState(true);
   const [mtsWebinars, setMtsWebinars] = useState<any[]>([]);
   const [mtsLoading, setMtsLoading] = useState(false);

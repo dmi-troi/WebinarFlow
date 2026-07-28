@@ -1,5 +1,4 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
@@ -39,7 +38,9 @@ const statusLabels: Record<string, { label: string; className: string }> = {
 };
 
 type FilterStatus = 'all' | 'pending' | 'in_progress' | 'done';
-const emptyTask = { title: '', webinarId: '', responsibleId: '', taskType: 'general' as const, dueDate: '', dueTime: '', reminderTime: '', status: 'pending' as const };
+type TaskForm = { title: string; webinarId: string; responsibleId: string; taskType: Task['taskType']; dueDate: string; dueTime: string; reminderTime: string; status: Task['status'] };
+
+const emptyTask: TaskForm = { title: '', webinarId: '', responsibleId: '', taskType: 'general', dueDate: '', dueTime: '', reminderTime: '', status: 'pending' };
 
 export function TasksPage() {
   const refreshKey = useAppStore((s) => s.refreshKey);
@@ -51,7 +52,7 @@ export function TasksPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyTask);
+  const [form, setForm] = useState<TaskForm>(emptyTask);
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [loading, setLoading] = useState(true);
 

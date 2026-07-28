@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       update: { value: String(value) },
       create: { key, value: String(value) },
     });
-    results.push(upserted);
+    results.push(upserted as unknown as Record<string, string>);
   }
   return NextResponse.json(results);
 }

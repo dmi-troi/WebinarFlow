@@ -37,7 +37,7 @@ export async function sendTelegram(
   }
 }
 
-export async function setWebhook(webhookUrl: string): Promise<{ ok: boolean; error?: string }> {
+export async function setWebhook(webhookUrl: string): Promise<{ ok: boolean; error?: string; description?: string }> {
   const settings = await getSettings();
   const token = settings.telegramBotToken;
   if (!token) return { ok: false, error: 'Bot token not configured' };

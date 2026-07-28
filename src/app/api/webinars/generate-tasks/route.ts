@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         status: 'pending',
       },
     });
-    tasks.push(task);
+    tasks.push(task as unknown as Record<string, unknown>);
   }
 
   return NextResponse.json(tasks, { status: 201 });
