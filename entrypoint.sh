@@ -2,6 +2,8 @@
 set -e
 
 if [ -n "$TURSO_DATABASE_URL" ]; then
+  # Set a valid file: URL so Prisma schema validation doesn't crash.
+  # The adapter in server.mjs handles the real Turso connection.
   export DATABASE_URL="file:/dev/null"
   echo "[entrypoint] Turso mode (adapter handles connection)"
 else
@@ -9,5 +11,5 @@ else
   echo "[entrypoint] Local SQLite mode"
 fi
 
-echo "[entrypoint] Starting server..."
-exec npx next start -p "${PORT:-3000}" -H "${HOSTNAME:-0.0.0.0}"
+echo "[entrypoint] Starting custom server..."
+exec node server.mjs

@@ -12,7 +12,7 @@ COPY . .
 ENV DATABASE_URL="file:/app/data/wf.db"
 RUN npx prisma generate
 
-# Build Next.js (no standalone — use next start with full node_modules)
+# Build Next.js (no standalone — custom server handles startup)
 RUN npx next build
 
 # ====== RUNNER STAGE ======
@@ -28,12 +28,15 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 
-# Full node_modules — no bundling issues, native modules work correctly
+# Full node_modules — needed for runtime imports in server.mjs
 COPY --from=builder /app/node_modules ./node_modules
 
-# Config files needed by next start
+# Config files
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.ts ./next.config.ts
+
+# Custom server
+COPY --from=builder /app/server.mjs ./server.mjs
 
 # Local fallback dir
 RUN mkdir -p /app/data

@@ -1,25 +1,17 @@
-import { PrismaClient } from '@prisma/client';
-import { PrismaLibSQL } from '@prisma/adapter-libsql';
-import { createClient } from '@libsql/client';
+// db.ts — Database client
+// The actual PrismaClient instance is created by server.mjs (custom server)
+// and stored on globalThis.__db BEFORE any route code runs.
+// This avoids ALL Turbopack/webpack bundling issues with native @libsql/client.
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
+import type { PrismaClient as PrismaClientType } from '@prisma/client';
 
-function createDb(): PrismaClient {
-  if (process.env.TURSO_DATABASE_URL) {
-    const libsql = createClient({
-      url: process.env.TURSO_DATABASE_URL,
-      authToken: process.env.TURSO_AUTH_TOKEN || '',
-    });
-    const adapter = new PrismaLibSQL(libsql);
-    console.log('[db] Turso connected via adapter, url:', process.env.TURSO_DATABASE_URL);
-    return new PrismaClient({ adapter });
-  }
-  console.log('[db] Local SQLite');
-  return new PrismaClient({ datasourceUrl: 'file:/app/data/wf.db' });
+const db = (globalThis as any).__db as PrismaClientType;
+
+if (!db) {
+  throw new Error(
+    '[db] Database client not initialized. server.mjs must run first.'
+  );
 }
 
-export const db: PrismaClient = globalForPrisma.prisma ?? createDb();
-if (!globalForPrisma.prisma) globalForPrisma.prisma = db;
-export { PrismaClient };
+export { db };
+export type { PrismaClientType as PrismaClient };
