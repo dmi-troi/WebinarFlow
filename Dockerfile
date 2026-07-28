@@ -21,6 +21,9 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Fix fcntl64 symbol for @libsql/client native binary
+RUN apk add --no-cache gcompat
+
 # Standalone output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
