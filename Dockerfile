@@ -1,5 +1,5 @@
-# ====== BUILD STAGE ======
-FROM node:20-alpine AS builder
+# ====== BUILD STAGE (Debian for correct native binaries) ======
+FROM node:20-slim AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* bun.lock* ./
@@ -15,14 +15,11 @@ RUN npx prisma generate
 RUN npx next build
 
 # ====== RUNNER STAGE ======
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
-
-# Fix fcntl64 symbol for @libsql/client native binary
-RUN apk add --no-cache gcompat
 
 # Standalone output
 COPY --from=builder /app/.next/standalone ./
@@ -33,7 +30,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Turso adapter packages (runtime require)
+# Turso adapter packages
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 

@@ -5,7 +5,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createDb(): PrismaClient {
-  // Turso: use driver adapter (packages are in node_modules via Dockerfile COPY)
+  // Turso: use driver adapter
   if (process.env.TURSO_DATABASE_URL) {
     try {
       const { PrismaLibSQL } = require('@prisma/adapter-libsql');
@@ -21,9 +21,9 @@ function createDb(): PrismaClient {
       console.error('[db] Adapter failed:', e);
     }
   }
-  // Local SQLite fallback
+  // Local SQLite fallback — explicit file: URL to avoid libsql:// validation error
   console.log('[db] Local SQLite');
-  return new PrismaClient();
+  return new PrismaClient({ datasourceUrl: 'file:/app/data/wf.db' });
 }
 
 export const db: PrismaClient = globalForPrisma.prisma ?? createDb();
