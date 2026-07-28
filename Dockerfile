@@ -2,17 +2,14 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy only dependency manifests first (better cache)
-COPY package.json bun.lockb* ./
+COPY package.json package-lock.json* bun.lock* ./
+RUN npm install
 
-# Install deps
-RUN npm install --frozen-lockfile 2>/dev/null || npm install
-
-# Copy the rest
 COPY . .
 
-# Generate Prisma client & push schema
-RUN npx prisma generate && npx prisma db push --accept-data-loss 2>/dev/null || true
+# Generate Prisma client (force local SQLite URL for generation)
+ENV DATABASE_URL="file:/app/data/wf.db"
+RUN npx prisma generate
 
 # Build Next.js (standalone)
 RUN npx next build
@@ -20,28 +17,31 @@ RUN npx next build
 # ====== PRODUCTION STAGE ======
 FROM node:20-alpine AS runner
 WORKDIR /app
-
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser  --system --uid 1001 nextjs
-
 # Copy standalone output
 COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static    .next/static
-COPY --from=builder /app/public          ./public
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-# Copy Prisma schema + generated client (needed for runtime queries)
-COPY --from=builder /app/prisma          ./prisma
+# Copy Prisma + libsql (needed for runtime)
+COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 
-# SQLite data volume
-VOLUME /app/data
+# Install prisma CLI for db push at startup
+RUN npm install prisma @prisma/client 2>&1 | tail -3
 
-USER nextjs
+# Copy entrypoint
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
+# Local fallback
+RUN mkdir -p /app/data
+ENV DATABASE_URL="file:/app/data/wf.db"
+
 EXPOSE 3000
-
-CMD ["node", "server.js"]
+CMD ["./entrypoint.sh"]

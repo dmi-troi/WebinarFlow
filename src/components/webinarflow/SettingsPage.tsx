@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { Save, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, Send, CheckCircle2, AlertCircle, Zap, Link2, Unlink, MessageSquare, Clock } from 'lucide-react';
 
 interface AppSettings {
   taskPeriods: { unisender: number; mtsLink: number; reminder: number; eventDay: number };
@@ -41,6 +41,7 @@ export function SettingsPage() {
   const [mtsStatus, setMtsStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [loginPw, setLoginPw] = useState('');
   const [hasPassword, setHasPassword] = useState(false);
+  const [cronTesting, setCronTesting] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -216,6 +217,32 @@ export function SettingsPage() {
             {tgStatus === 'ok' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
             {tgStatus === 'error' && <AlertCircle className="h-4 w-4 text-red-500" />}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Auto Notifications */}
+      <Card className="mb-4 border-[#1E5BEB]/20">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Clock className="h-5 w-5 text-[#1E5BEB]" /> Автоматические уведомления</CardTitle>
+          <CardDescription>Утренняя сводка и напоминания за 30 минут до дедлайна</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-muted/50 rounded-lg p-3 space-y-2 text-sm">
+            <div><b>Утро (9:00–10:00 МСК)</b> — сводка по задачам на сегодня в Telegram</div>
+            <div><b>За 30 мин до дедлайна</b> — персональное напоминание ответственному</div>
+          </div>
+          <div className="border-t pt-4">
+            <Label className="mb-2 block">Внешний cron (обязателен)</Label>
+            <p className="text-xs text-muted-foreground mb-2">Зарегистрируйтесь на <a href="https://cron-job.org" target="_blank" className="text-[#1E5BEB] underline">cron-job.org</a> (бесплатно) и создайте задачу:</p>
+            <div className="bg-muted rounded-lg p-3 font-mono text-xs space-y-1">
+              <div><b>URL:</b> https://ваш-сайт.onrender.com/api/notifications/cron</div>
+              <div><b>Интервал:</b> Каждые 5 минут</div>
+              <div><b>Метод:</b> GET</div>
+            </div>
+          </div>
+          <Button onClick={async () => { setCronTesting(true); try { const r = await fetch('/api/notifications/cron'); const d = await r.json(); toast.success(JSON.stringify(d)); } catch { toast.error('Ошибка'); } setCronTesting(false); }} disabled={cronTesting || !tgToken} variant="outline" size="sm">
+            <Zap className="h-3.5 w-3.5 mr-1.5" />{cronTesting ? 'Проверка...' : 'Тест cron сейчас'}
+          </Button>
         </CardContent>
       </Card>
 
