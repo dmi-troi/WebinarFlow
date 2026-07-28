@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { db } from '@/lib/db';
 
 async function getSettings() {
   const keys = ['mtsLinkApiKey', 'mtsLinkBaseUrl'];
-  const rows = await prisma.settings.findMany({ where: { key: { in: keys } } });
+  const rows = await db.settings.findMany({ where: { key: { in: keys } } });
   const map: Record<string, string> = {};
   rows.forEach((r) => (map[r.key] = r.value));
   return {

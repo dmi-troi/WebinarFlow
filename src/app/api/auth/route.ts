@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { db } from '@/lib/db';
 import { createHash } from 'crypto';
-
-const prisma = new PrismaClient();
 
 function hashPassword(pw: string) {
   return createHash('sha256').update(pw).digest('hex');
@@ -10,7 +8,7 @@ function hashPassword(pw: string) {
 
 // GET — check if authenticated
 export async function GET(req: NextRequest) {
-  const row = await prisma.settings.findUnique({ where: { key: 'loginPassword' } });
+  const row = await db.settings.findUnique({ where: { key: 'loginPassword' } });
   // No password set — always allow
   if (!row?.value) return NextResponse.json({ authenticated: true, noPassword: true });
 
@@ -24,7 +22,7 @@ export async function GET(req: NextRequest) {
 // POST — login with password
 export async function POST(req: NextRequest) {
   const { password } = await req.json();
-  const row = await prisma.settings.findUnique({ where: { key: 'loginPassword' } });
+  const row = await db.settings.findUnique({ where: { key: 'loginPassword' } });
 
   if (!row?.value) {
     const res = NextResponse.json({ success: true, noPassword: true });
