@@ -1,17 +1,18 @@
 // db.ts — Database client
-// The actual PrismaClient instance is created by server.mjs (custom server)
-// and stored on globalThis.__db BEFORE any route code runs.
-// This avoids ALL Turbopack/webpack bundling issues with native @libsql/client.
+// At RUNTIME: PrismaClient is created by server.mjs and stored on globalThis.__db
+// At BUILD TIME: falls back to local SQLite (server.mjs is not running)
 
 import type { PrismaClient as PrismaClientType } from '@prisma/client';
 
-const db = (globalThis as any).__db as PrismaClientType;
+let _db: PrismaClientType | undefined = (globalThis as any).__db;
 
-if (!db) {
-  throw new Error(
-    '[db] Database client not initialized. server.mjs must run first.'
-  );
+if (!_db) {
+  // Build time or direct require without server.mjs — create local client
+  // At runtime this branch is skipped because server.mjs already set globalThis.__db
+  const { PrismaClient } = require('@prisma/client');
+  _db = new PrismaClient({ datasourceUrl: 'file:/app/data/wf.db' });
+  console.log('[db] Fallback: local SQLite (no server.mjs)');
 }
 
-export { db };
+export const db = _db;
 export type { PrismaClientType as PrismaClient };
