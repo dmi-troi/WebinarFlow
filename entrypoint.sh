@@ -1,22 +1,26 @@
 #!/bin/sh
 set -e
 
-# Build DATABASE_URL from TURSO_* vars if DATABASE_URL is not set
-if [ -z "$DATABASE_URL" ] && [ -n "$TURSO_DATABASE_URL" ]; then
+# Always prefer TURSO_DATABASE_URL over any pre-set DATABASE_URL
+if [ -n "$TURSO_DATABASE_URL" ]; then
   export DATABASE_URL="${TURSO_DATABASE_URL}?authToken=${TURSO_AUTH_TOKEN}"
-  echo "[entrypoint] Built DATABASE_URL from TURSO_DATABASE_URL + TURSO_AUTH_TOKEN"
+  echo "[entrypoint] Using Turso: ${TURSO_DATABASE_URL}"
+else
+  # Local SQLite fallback
+  export DATABASE_URL="${DATABASE_URL:-file:/app/data/wf.db}"
+  echo "[entrypoint] Using local SQLite: ${DATABASE_URL}"
 fi
 
-# If DATABASE_URL points to Turso, push schema to create/update tables
+# Push schema to Turso on cold start (with 30s timeout to avoid hanging)
 case "$DATABASE_URL" in
   libsql://*|https://*)
-    echo "[entrypoint] Detected Turso URL, running prisma db push..."
-    npx prisma db push --accept-data-loss 2>&1 || echo "[entrypoint] prisma db push warning"
+    echo "[entrypoint] Running prisma db push..."
+    timeout 30 npx prisma db push --accept-data-loss 2>&1 || echo "[entrypoint] prisma db push skipped or failed (non-fatal)"
     ;;
   *)
-    echo "[entrypoint] Using local SQLite, skipping schema push"
+    echo "[entrypoint] Local SQLite, skipping schema push"
     ;;
 esac
 
-echo "[entrypoint] Starting server..."
+echo "[entrypoint] Starting server on port ${PORT:-3000}..."
 exec node server.js

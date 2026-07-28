@@ -4,50 +4,58 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-function getDbUrl(): string {
-  // Build from two separate env vars
-  const tursoUrl = process.env.TURSO_DATABASE_URL;
-  const tursoToken = process.env.TURSO_AUTH_TOKEN;
-  if (tursoUrl) {
-    const url = new URL(tursoUrl);
-    if (tursoToken) url.searchParams.set('authToken', tursoToken);
-    return url.toString();
+function getTursoConfig(): { url: string; authToken: string } | null {
+  const url = process.env.TURSO_DATABASE_URL;
+  const token = process.env.TURSO_AUTH_TOKEN;
+  if (url) return { url, authToken: token || '' };
+  return null;
+}
+
+function getDatasourceUrl(): string {
+  // If TURSO vars exist, build libsql URL for Prisma datasource fallback
+  const turso = getTursoConfig();
+  if (turso) {
+    const u = new URL(turso.url);
+    if (turso.authToken) u.searchParams.set('authToken', turso.authToken);
+    return u.toString();
   }
-  // Full DATABASE_URL or local fallback
   return process.env.DATABASE_URL || 'file:/app/data/wf.db';
 }
 
 function createDb(): PrismaClient {
-  const url = getDbUrl();
+  const turso = getTursoConfig();
 
-  // Turso/libsql remote: use driver adapter
-  if (url.startsWith('libsql://') || url.startsWith('https://')) {
+  if (turso) {
     try {
+      // Use require() — works in Next.js standalone CJS server.
+      // These packages are manually copied in Dockerfile.
       const { PrismaLibSQL } = require('@prisma/adapter-libsql');
       const { createClient } = require('@libsql/client');
 
-      const libsqlUrl = process.env.TURSO_DATABASE_URL || url;
-      const authToken = process.env.TURSO_AUTH_TOKEN || '';
-
-      const libsql = createClient({ url: libsqlUrl, authToken });
+      const libsql = createClient({
+        url: turso.url,
+        authToken: turso.authToken,
+      });
       const adapter = new PrismaLibSQL(libsql);
 
-      console.log('[db] Using Turso via driver adapter');
+      console.log('[db] Connected to Turso via driver adapter');
       return new PrismaClient({ adapter });
     } catch (e) {
-      console.error('[db] Failed to load libsql adapter, falling back to SQLite:', e);
+      console.error('[db] Adapter failed, using datasource URL directly:', e);
+      // Fallback: pass libsql URL as datasourceUrl (Prisma supports this with sqlite provider)
+      return new PrismaClient({ datasourceUrl: getDatasourceUrl() });
     }
   }
 
   // Local SQLite
   console.log('[db] Using local SQLite');
-  return new PrismaClient({ datasourceUrl: url });
+  return new PrismaClient({ datasourceUrl: getDatasourceUrl() });
 }
 
-// Ensure local DB directory exists
+// Ensure local DB directory exists (only for local SQLite)
 try {
   const fs = require('fs');
-  const url = getDbUrl();
+  const url = getDatasourceUrl();
   if (url.startsWith('file:')) {
     const dir = url.replace('file:', '').replace(/[^/]*$/, '');
     if (dir) fs.mkdirSync(dir, { recursive: true });
@@ -58,11 +66,3 @@ export const db: PrismaClient = globalForPrisma.prisma ?? createDb();
 if (!globalForPrisma.prisma) globalForPrisma.prisma = db;
 
 export { PrismaClient };
-
-export async function initDb() {
-  try {
-    await db.$connect();
-  } catch (e) {
-    console.error('DB init error:', e);
-  }
-}
