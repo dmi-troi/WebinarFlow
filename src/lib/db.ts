@@ -8,6 +8,8 @@ function createDb(): PrismaClient {
   // Turso: use driver adapter
   if (process.env.TURSO_DATABASE_URL) {
     try {
+      // Dynamic import — packages are marked serverExternalPackages
+      // so they load from real node_modules at runtime, not bundled
       const { PrismaLibSQL } = require('@prisma/adapter-libsql');
       const { createClient } = require('@libsql/client');
       const libsql = createClient({
@@ -15,15 +17,10 @@ function createDb(): PrismaClient {
         authToken: process.env.TURSO_AUTH_TOKEN || '',
       });
       const adapter = new PrismaLibSQL(libsql);
-      console.log('[db] Turso connected');
-      // datasourceUrl with dummy file: prevents Prisma from
-      // reading DATABASE_URL env (which may be undefined/invalid)
-      return new PrismaClient({
-        adapter,
-        datasourceUrl: 'file:/tmp/turso-dummy.db',
-      });
+      console.log('[db] Turso connected via adapter');
+      return new PrismaClient({ adapter });
     } catch (e) {
-      console.error('[db] Adapter failed:', e);
+      console.error('[db] Adapter failed, falling back to local:', e);
     }
   }
   // Local SQLite fallback
