@@ -15,7 +15,8 @@ async function getSettings() {
 async function mtsFetch(path: string, apiKey: string, baseUrl: string) {
   const url = `${baseUrl}${path}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const timeout = setTimeout(() => controller.abort(), 6_000);
+  const started = Date.now();
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -24,12 +25,14 @@ async function mtsFetch(path: string, apiKey: string, baseUrl: string) {
     const text = await res.text();
     let data: any;
     try { data = JSON.parse(text); } catch { data = text; }
+    console.log(`[mts-link] ${url} -> ${res.status} in ${Date.now() - started}ms`);
     return { ok: res.ok, status: res.status, data };
   } catch (e: any) {
+    console.error(`[mts-link] ${url} FAILED after ${Date.now() - started}ms:`, e.name, e.message);
     if (e.name === 'AbortError') {
-      return { ok: false, status: 504, data: 'МТС Линк не отвечает (таймаут 10с). Проверьте Base URL в Настройках.' };
+      return { ok: false, status: 504, data: 'МТС Линк не отвечает (таймаут 6с). Проверьте Base URL в Настройках.' };
     }
-    throw e;
+    return { ok: false, status: 502, data: `Сетевая ошибка: ${e.message}` };
   } finally {
     clearTimeout(timeout);
   }
