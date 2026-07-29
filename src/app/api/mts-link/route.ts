@@ -14,13 +14,25 @@ async function getSettings() {
 
 async function mtsFetch(path: string, apiKey: string, baseUrl: string) {
   const url = `${baseUrl}${path}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-  });
-  const text = await res.text();
-  let data: any;
-  try { data = JSON.parse(text); } catch { data = text; }
-  return { ok: res.ok, status: res.status, data };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      signal: controller.signal,
+    });
+    const text = await res.text();
+    let data: any;
+    try { data = JSON.parse(text); } catch { data = text; }
+    return { ok: res.ok, status: res.status, data };
+  } catch (e: any) {
+    if (e.name === 'AbortError') {
+      return { ok: false, status: 504, data: 'МТС Линк не отвечает (таймаут 10с). Проверьте Base URL в Настройках.' };
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // GET /api/mts-link?action=status|webinars|webinar|stats
