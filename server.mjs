@@ -16,13 +16,14 @@ async function main() {
 
   if (process.env.TURSO_DATABASE_URL) {
     const { PrismaLibSQL } = await import('@prisma/adapter-libsql');
-    const { createClient } = await import('@libsql/client');
 
-    const libsql = createClient({
+    // PrismaLibSQL takes the libsql *config* object directly — it calls
+    // createClient(config) internally. Passing an already-constructed
+    // Client here (as before) breaks that internal call.
+    const adapter = new PrismaLibSQL({
       url: process.env.TURSO_DATABASE_URL,
       authToken: process.env.TURSO_AUTH_TOKEN || '',
     });
-    const adapter = new PrismaLibSQL(libsql);
     prisma = new PrismaClient({ adapter });
     console.log('[server] Turso connected via adapter');
   } else {

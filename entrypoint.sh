@@ -11,5 +11,12 @@ else
   echo "[entrypoint] Local SQLite mode"
 fi
 
+echo "[entrypoint] Applying database schema (prisma db push)..."
+if npx prisma db push --accept-data-loss --skip-generate; then
+  echo "[entrypoint] Schema is up to date."
+else
+  echo "[entrypoint] WARNING: prisma db push failed — the app may error until this is fixed." >&2
+fi
+
 echo "[entrypoint] Starting custom server..."
 exec node server.mjs
