@@ -26,6 +26,7 @@ async function mtsFetch(path: string, apiKey: string, baseUrl: string) {
     let data: any;
     try { data = JSON.parse(text); } catch { data = text; }
     console.log(`[mts-link] ${url} -> ${res.status} in ${Date.now() - started}ms`);
+    if (!res.ok) console.error(`[mts-link] error body:`, text.slice(0, 1000));
     return { ok: res.ok, status: res.status, data };
   } catch (e: any) {
     console.error(`[mts-link] ${url} FAILED after ${Date.now() - started}ms:`, e.name, e.message);
