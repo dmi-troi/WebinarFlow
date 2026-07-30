@@ -15,7 +15,7 @@ async function getSettings() {
 async function mtsFetch(path: string, apiKey: string, baseUrl: string) {
   const url = `${baseUrl}${path}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6_000);
+  const timeout = setTimeout(() => controller.abort(), 15_000);
   const started = Date.now();
   try {
     const res = await fetch(url, {
@@ -31,7 +31,7 @@ async function mtsFetch(path: string, apiKey: string, baseUrl: string) {
   } catch (e: any) {
     console.error(`[mts-link] ${url} FAILED after ${Date.now() - started}ms:`, e.name, e.message);
     if (e.name === 'AbortError') {
-      return { ok: false, status: 504, data: 'МТС Линк не отвечает (таймаут 6с). Проверьте Base URL в Настройках.' };
+      return { ok: false, status: 504, data: 'МТС Линк не отвечает (таймаут 15с). Проверьте Base URL в Настройках.' };
     }
     return { ok: false, status: 502, data: `Сетевая ошибка: ${e.message}` };
   } finally {
@@ -48,12 +48,10 @@ function ymd(d: Date) {
 // from/to нужно передавать явно, иначе to = from + 1 год по умолчанию.
 function scheduleQuery(perPage: 10 | 50 | 100 | 250) {
   const from = new Date();
-  from.setFullYear(from.getFullYear() - 2);
+  from.setMonth(from.getMonth() - 6);
   const to = new Date();
-  to.setFullYear(to.getFullYear() + 1);
-  const statuses = ['ACTIVE', 'STOP', 'START'];
-  const statusParams = statuses.map((s, i) => `status[${i}]=${s}`).join('&');
-  return `/organization/events/schedule?from=${ymd(from)}&to=${ymd(to)}&perPage=${perPage}&page=1&${statusParams}`;
+  to.setMonth(to.getMonth() + 6);
+  return `/organization/events/schedule?from=${ymd(from)}&to=${ymd(to)}&perPage=${perPage}&page=1`;
 }
 
 // Разворачивает Event -> eventSessions в плоский список "вебинаров"
