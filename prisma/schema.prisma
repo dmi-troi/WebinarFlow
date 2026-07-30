@@ -35,6 +35,10 @@ model Webinar {
 
   responsible   Responsible?  @relation(fields: [responsibleId], references: [id])
   tasks         Task[]
+
+  @@index([date])
+  @@index([status])
+  @@index([responsibleId])
 }
 
 model Task {
@@ -51,6 +55,11 @@ model Task {
 
   webinar     Webinar?     @relation(fields: [webinarId], references: [id])
   responsible Responsible?  @relation(fields: [responsibleId], references: [id])
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([webinarId])
+  @@index([responsibleId])
 }
 
 model ArchiveWebinar {

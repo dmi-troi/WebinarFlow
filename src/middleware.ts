@@ -6,7 +6,7 @@ function hashPassword(pw: string) {
 }
 
 // Routes that don't require authentication
-const PUBLIC_PATHS = ['/api/auth', '/api/telegram/webhook', '/api/notifications/cron'];
+const PUBLIC_PATHS = ['/api/auth', '/api/telegram/webhook', '/api/notifications/cron', '/api/health'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

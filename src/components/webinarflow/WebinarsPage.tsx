@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 import type { Webinar, Responsible } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,7 +19,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Zap, Download, ExternalLink, RefreshCw, Users, Video } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, Download, ExternalLink, RefreshCw, Users, Video, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -50,6 +50,16 @@ export function WebinarsPage() {
   const [mtsLoading, setMtsLoading] = useState(false);
   const [mtsError, setMtsError] = useState('');
   const [showMts, setShowMts] = useState(false);
+  const [search, setSearch] = useState('');
+  const [responsibleFilter, setResponsibleFilter] = useState('all');
+
+  const filteredWebinars = useMemo(() => {
+    return webinars.filter((w) => {
+      const matchesSearch = !search.trim() || w.title.toLowerCase().includes(search.trim().toLowerCase());
+      const matchesResponsible = responsibleFilter === 'all' || w.responsibleId === responsibleFilter;
+      return matchesSearch && matchesResponsible;
+    });
+  }, [webinars, search, responsibleFilter]);
 
   const loadData = useCallback(() => {
     Promise.all([
@@ -132,14 +142,41 @@ export function WebinarsPage() {
         </Button>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Поиск по названию..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+          <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Все ответственные" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все ответственные</SelectItem>
+            {responsibles.map((r) => (<SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {webinars.length === 0 ? (
         <Card><CardContent className="p-12 text-center">
           <Video className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Нет вебинаров. Нажмите «Создать» чтобы добавить.</p>
+          <p className="text-muted-foreground mb-4">Нет вебинаров. Нажмите «Создать» чтобы добавить.</p>
+          <Button onClick={openCreate} className="bg-[#1E5BEB] hover:bg-[#1E5BEB]/80">
+            <Plus className="h-4 w-4 mr-2" />Создать
+          </Button>
+        </CardContent></Card>
+      ) : filteredWebinars.length === 0 ? (
+        <Card><CardContent className="p-12 text-center">
+          <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">Ничего не найдено по заданным фильтрам.</p>
         </CardContent></Card>
       ) : (
         <div className="space-y-3">
-          {webinars.map((w) => {
+          {filteredWebinars.map((w) => {
             const st = statusLabels[w.status] || statusLabels.planned;
             return (
               <Card key={w.id} className="hover:shadow-md transition-shadow">
