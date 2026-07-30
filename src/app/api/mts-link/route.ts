@@ -19,7 +19,7 @@ async function mtsFetch(path: string, apiKey: string, baseUrl: string) {
   const started = Date.now();
   try {
     const res = await fetch(url, {
-      headers: { 'x-auth-token': apiKey, 'Content-Type': 'application/json' },
+      headers: { 'x-auth-token': apiKey },
       signal: controller.signal,
     });
     const text = await res.text();
