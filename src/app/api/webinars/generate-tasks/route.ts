@@ -7,6 +7,14 @@ export async function POST(request: Request) {
   const webinar = await db.webinar.findUnique({ where: { id: webinarId } });
   if (!webinar) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  const now = new Date();
+  if (new Date(webinar.date) < now) {
+    return NextResponse.json(
+      { error: 'Вебинар уже прошёл — задачи не создаются' },
+      { status: 400 }
+    );
+  }
+
   let settings = await db.settings.findMany();
   const settingsMap: Record<string, string> = {};
   for (const s of settings) settingsMap[s.key] = s.value;
@@ -19,7 +27,6 @@ export async function POST(request: Request) {
     ? JSON.parse(settingsMap.taskTypeNames)
     : { unisender: 'Юнисендер', mtsLink: 'МТС Link', reminder: 'Напоминание', eventDay: 'День мероприятия' };
 
-  const tasks = [];
   const taskDefinitions = [
     { key: 'unisender', type: 'unisender' },
     { key: 'mtsLink', type: 'mtsLink' },
@@ -27,10 +34,33 @@ export async function POST(request: Request) {
     { key: 'eventDay', type: 'eventDay' },
   ];
 
-  for (const def of taskDefinitions) {
+  // Защита от повторной генерации: не создаём задачу того типа,
+  // который уже существует для этого вебинара.
+  const existing = await db.task.findMany({
+    where: { webinarId: webinar.id },
+    select: { taskType: true },
+  });
+  const existingTypes = new Set(existing.map((t) => t.taskType));
+
+  const toCreate = taskDefinitions.filter((def) => !existingTypes.has(def.type));
+
+  if (toCreate.length === 0) {
+    return NextResponse.json(
+      { error: 'Задачи для этого вебинара уже сгенерированы' },
+      { status: 409 }
+    );
+  }
+
+  const tasks: Record<string, unknown>[] = [];
+  for (const def of toCreate) {
     const daysBefore = periods[def.key] ?? 0;
     const dueDate = new Date(webinar.date);
     dueDate.setDate(dueDate.getDate() - daysBefore);
+
+    // Если расчётная дата всё равно оказалась в прошлом (например,
+    // вебинар уже завтра, а период "за 3 дня") — не создаём задачу
+    // задним числом, ставим на "сейчас".
+    if (dueDate < now) dueDate.setTime(now.getTime());
 
     const task = await db.task.create({
       data: {
@@ -45,5 +75,9 @@ export async function POST(request: Request) {
     tasks.push(task as unknown as Record<string, unknown>);
   }
 
-  return NextResponse.json(tasks, { status: 201 });
+  const skipped = taskDefinitions.length - toCreate.length;
+  return NextResponse.json(
+    { tasks, created: tasks.length, skippedExisting: skipped },
+    { status: 201 }
+  );
 }

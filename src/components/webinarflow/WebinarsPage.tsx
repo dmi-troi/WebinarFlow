@@ -86,8 +86,17 @@ export function WebinarsPage() {
   };
 
   const handleGenerateTasks = async (webinarId: string) => {
-    await fetch('/api/webinars/generate-tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ webinarId }) });
-    toast.success('Задачи сгенерированы');
+    const res = await fetch('/api/webinars/generate-tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ webinarId }) });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error || 'Не удалось сгенерировать задачи');
+      return;
+    }
+    if (data.skippedExisting > 0) {
+      toast.success(`Создано задач: ${data.created} (уже было: ${data.skippedExisting})`);
+    } else {
+      toast.success('Задачи сгенерированы');
+    }
     triggerRefresh();
   };
 
