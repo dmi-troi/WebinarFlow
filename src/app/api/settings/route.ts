@@ -39,7 +39,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const data = await request.json();
-  const results = [];
+  const results: Record<string, string>[] = [];
   for (const [key, value] of Object.entries(data)) {
     // Don't overwrite password with null/empty (means "don't change")
     if (key === 'loginPassword' && !value) continue;

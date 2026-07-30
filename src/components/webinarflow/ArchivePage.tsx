@@ -38,10 +38,10 @@ export function ArchivePage() {
     triggerRefresh();
   };
 
-  if (loading) return <div className="p-6"><div className="h-64 animate-pulse bg-muted rounded-xl" /></div>;
+  if (loading) return <div className="p-4 md:p-6"><div className="h-64 animate-pulse bg-muted rounded-xl" /></div>;
 
   return (
-    <div className="p-6 max-w-6xl">
+    <div className="p-4 md:p-6 max-w-6xl">
       <div className="mb-6 hidden md:block">
         <h1 className="text-2xl font-bold">Архив</h1>
         <p className="text-muted-foreground">Просмотр и восстановление архивированных элементов</p>

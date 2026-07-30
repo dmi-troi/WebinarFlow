@@ -118,10 +118,10 @@ export function WebinarsPage() {
     triggerRefresh();
   };
 
-  if (loading) return <div className="p-6"><div className="h-64 animate-pulse bg-muted rounded-xl" /></div>;
+  if (loading) return <div className="p-4 md:p-6"><div className="h-64 animate-pulse bg-muted rounded-xl" /></div>;
 
   return (
-    <div className="p-6 max-w-6xl">
+    <div className="p-4 md:p-6 max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div className="hidden md:block">
           <h1 className="text-2xl font-bold">Вебинары</h1>
@@ -167,13 +167,13 @@ export function WebinarsPage() {
                           <SelectItem value="cancelled">Отменён</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button variant="outline" size="icon" className="h-8 w-8" title="Сгенерировать задачи" onClick={() => handleGenerateTasks(w.id)}>
+                      <Button variant="outline" size="icon" className="h-9 w-9 md:h-8 md:w-8" title="Сгенерировать задачи" onClick={() => handleGenerateTasks(w.id)}>
                         <Zap className="h-4 w-4 text-amber-500" />
                       </Button>
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEdit(w)}>
+                      <Button variant="outline" size="icon" className="h-9 w-9 md:h-8 md:w-8" onClick={() => openEdit(w)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openDelete(w.id)}>
+                      <Button variant="outline" size="icon" className="h-9 w-9 md:h-8 md:w-8 ml-1" onClick={() => openDelete(w.id)}>
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
                     </div>
@@ -257,7 +257,7 @@ export function WebinarsPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? 'Редактировать вебинар' : 'Новый вебинар'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Название</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Название вебинара" /></div>

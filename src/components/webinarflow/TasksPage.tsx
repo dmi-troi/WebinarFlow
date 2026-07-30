@@ -121,10 +121,10 @@ export function TasksPage() {
     { value: 'done', label: 'Выполнено', count: tasks.filter((t) => t.status === 'done').length },
   ];
 
-  if (loading) return <div className="p-6"><div className="h-64 animate-pulse bg-muted rounded-xl" /></div>;
+  if (loading) return <div className="p-4 md:p-6"><div className="h-64 animate-pulse bg-muted rounded-xl" /></div>;
 
   return (
-    <div className="p-6 max-w-6xl">
+    <div className="p-4 md:p-6 max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div className="hidden md:block">
           <h1 className="text-2xl font-bold">Задачи</h1>
@@ -192,8 +192,8 @@ export function TasksPage() {
                         <SelectItem value="done">Готово</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setDeletingId(t.id); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5 text-red-400" /></Button>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7 ml-1" onClick={() => { setDeletingId(t.id); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5 text-red-400" /></Button>
                   </div>
                 </CardContent>
               </Card>
@@ -203,7 +203,7 @@ export function TasksPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? 'Редактировать задачу' : 'Новая задача'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Название</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Название задачи" /></div>

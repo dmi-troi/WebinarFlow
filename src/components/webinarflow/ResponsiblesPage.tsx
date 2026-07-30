@@ -73,10 +73,10 @@ export function ResponsiblesPage() {
     triggerRefresh();
   };
 
-  if (loading) return <div className="p-6"><div className="h-64 animate-pulse bg-muted rounded-xl" /></div>;
+  if (loading) return <div className="p-4 md:p-6"><div className="h-64 animate-pulse bg-muted rounded-xl" /></div>;
 
   return (
-    <div className="p-6 max-w-6xl">
+    <div className="p-4 md:p-6 max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div className="hidden md:block">
           <h1 className="text-2xl font-bold">Ответственные</h1>
@@ -115,7 +115,7 @@ export function ResponsiblesPage() {
                 </div>
                 <div className="flex gap-2 pt-2">
                   <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5 mr-1" />Изменить</Button>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setDeletingId(r.id); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5 text-red-400" /></Button>
+                  <Button variant="outline" size="icon" className="h-9 w-9 md:h-8 md:w-8" onClick={() => { setDeletingId(r.id); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5 text-red-400" /></Button>
                 </div>
               </CardContent>
             </Card>
@@ -124,7 +124,7 @@ export function ResponsiblesPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? 'Редактировать' : 'Новый ответственный'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Имя</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Имя" /></div>

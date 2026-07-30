@@ -60,7 +60,7 @@ export function DashboardPage() {
 
   if (loading || !stats) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1,2,3,4].map(i => (
             <Card key={i}><CardContent className="p-6"><div className="h-16 animate-pulse bg-muted rounded" /></CardContent></Card>
@@ -71,7 +71,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl">
+    <div className="p-4 md:p-6 space-y-6 max-w-6xl">
       <div className="hidden md:block">
         <h1 className="text-2xl font-bold">Дашборд</h1>
         <p className="text-muted-foreground">Обзор системы управления вебинарами</p>

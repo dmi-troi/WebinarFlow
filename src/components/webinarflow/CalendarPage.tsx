@@ -44,7 +44,7 @@ export function CalendarPage() {
   const selectedEvents = selectedDate ? getEventsForDate(selectedDate) : [];
 
   return (
-    <div className="p-6 max-w-6xl">
+    <div className="p-4 md:p-6 max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div className="hidden md:block">
           <h1 className="text-2xl font-bold">Календарь</h1>
