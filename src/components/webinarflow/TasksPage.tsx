@@ -221,10 +221,10 @@ export function TasksPage() {
             </div>
             <div><Label>Время напоминания (HH:MM)</Label><Input value={form.reminderTime} onChange={(e) => setForm({ ...form, reminderTime: e.target.value })} placeholder="09:00" /></div>
             <div><Label>Вебинар</Label>
-              <Select value={form.webinarId} onValueChange={(v) => setForm({ ...form, webinarId: v })}>
+              <Select value={form.webinarId || 'none'} onValueChange={(v) => setForm({ ...form, webinarId: v === 'none' ? '' : v })}>
                 <SelectTrigger><SelectValue placeholder="Не привязан" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Не привязан</SelectItem>
+                  <SelectItem value="none">Не привязан</SelectItem>
                   {webinars.map((w) => (<SelectItem key={w.id} value={w.id}>{w.title}</SelectItem>))}
                 </SelectContent>
               </Select>
