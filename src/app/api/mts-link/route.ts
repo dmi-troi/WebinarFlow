@@ -12,6 +12,8 @@ async function getSettings() {
   };
 }
 
+// Заголовки строго по официальной документации МТС Линк:
+// https://help.mts-link.ru/article/19680 — x-auth-token + x-www-form-urlencoded
 async function mtsFetch(path: string, apiKey: string, baseUrl: string) {
   const url = `${baseUrl}${path}`;
   const controller = new AbortController();
@@ -19,7 +21,10 @@ async function mtsFetch(path: string, apiKey: string, baseUrl: string) {
   const started = Date.now();
   try {
     const res = await fetch(url, {
-      headers: { 'x-auth-token': apiKey },
+      headers: {
+        'x-auth-token': apiKey,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
       signal: controller.signal,
     });
     const text = await res.text();
@@ -31,7 +36,7 @@ async function mtsFetch(path: string, apiKey: string, baseUrl: string) {
   } catch (e: any) {
     console.error(`[mts-link] ${url} FAILED after ${Date.now() - started}ms:`, e.name, e.message);
     if (e.name === 'AbortError') {
-      return { ok: false, status: 504, data: 'МТС Линк не отвечает (таймаут 15с). Проверьте Base URL в Настройках.' };
+      return { ok: false, status: 504, data: 'МТС Линк не отвечает (таймаут 15с).' };
     }
     return { ok: false, status: 502, data: `Сетевая ошибка: ${e.message}` };
   } finally {
@@ -45,13 +50,16 @@ function ymd(d: Date) {
 
 // GET /organization/events/schedule — вебинары "сериями" (Event), каждая серия
 // содержит одну или несколько eventSessions — это и есть реальные проведения.
-// from/to нужно передавать явно, иначе to = from + 1 год по умолчанию.
-function scheduleQuery(perPage: 10 | 50 | 100 | 250) {
+// Без параметра status[] по умолчанию отдаются только ACTIVE (запланированные) —
+// поэтому явно запрашиваем все три статуса, как в примере документации.
+function scheduleQuery(perPage: 10 | 50 | 100 | 250, opts: { statuses?: string[] } = {}) {
   const from = new Date();
-  from.setMonth(from.getMonth() - 6);
+  from.setFullYear(from.getFullYear() - 1);
   const to = new Date();
-  to.setMonth(to.getMonth() + 6);
-  return `/organization/events/schedule?from=${ymd(from)}&to=${ymd(to)}&perPage=${perPage}&page=1`;
+  to.setFullYear(to.getFullYear() + 1);
+  const statuses = opts.statuses ?? ['ACTIVE', 'STOP', 'START'];
+  const statusParams = statuses.map((s, i) => `status[${i}]=${s}`).join('&');
+  return `/organization/events/schedule?from=${ymd(from)}&to=${ymd(to)}&perPage=${perPage}&page=1&${statusParams}`;
 }
 
 // Разворачивает Event -> eventSessions в плоский список "вебинаров"
@@ -110,25 +118,39 @@ export async function GET(req: NextRequest) {
     }
 
     if (action === 'stats') {
-      const { ok, data } = await mtsFetch(scheduleQuery(250), apiKey, baseUrl);
-      if (!ok) return NextResponse.json({ error: 'Не удалось получить данные', details: data }, { status: 502 });
+      // GET /stats/events — специальный метод статистики: сразу отдаёт
+      // прошедшие мероприятия с готовыми агрегатами по участникам.
+      const from = new Date();
+      from.setFullYear(from.getFullYear() - 1);
+      const statsPath = `/stats/events?from=${ymd(from)}+00:00:00`;
+      const { ok: statsOk, data: statsData } = await mtsFetch(statsPath, apiKey, baseUrl);
+      const pastEvents = statsOk && Array.isArray(statsData) ? statsData : [];
 
-      const events = Array.isArray(data) ? data : data?.data || [];
-      const webinars = flattenEvents(events);
-      const now = new Date();
-      const totalWebinars = webinars.length;
-      const completed = webinars.filter((w) => w.status === 'STOP');
-      const upcoming = webinars.filter((w) => new Date(w.startDate || 0) > now);
-      const totalParticipants = webinars.reduce((sum, w) => sum + (w.participantCount || 0), 0);
-      const withRecording = webinars.filter((w) => w.recordUrl).length;
+      // Отдельно — только запланированные (ACTIVE), чтобы посчитать "предстоящие"
+      const { ok: upcomingOk, data: upcomingData } = await mtsFetch(
+        scheduleQuery(250, { statuses: ['ACTIVE'] }),
+        apiKey,
+        baseUrl
+      );
+      const upcomingEvents = upcomingOk
+        ? flattenEvents(Array.isArray(upcomingData) ? upcomingData : upcomingData?.data || [])
+        : [];
+
+      if (!statsOk && !upcomingOk) {
+        return NextResponse.json({ error: 'Не удалось получить данные', details: statsData }, { status: 502 });
+      }
+
+      const totalParticipants = pastEvents.reduce((sum: number, e: any) => sum + Number(e.registeredVisitedCount || 0), 0);
+      const completedWebinars = pastEvents.length;
+      const upcomingWebinars = upcomingEvents.length;
 
       return NextResponse.json({
-        totalWebinars,
-        completedWebinars: completed.length,
-        upcomingWebinars: upcoming.length,
+        totalWebinars: completedWebinars + upcomingWebinars,
+        completedWebinars,
+        upcomingWebinars,
         totalParticipants,
-        avgParticipants: totalWebinars > 0 ? Math.round(totalParticipants / totalWebinars) : 0,
-        recordingsCount: withRecording,
+        avgParticipants: completedWebinars > 0 ? Math.round(totalParticipants / completedWebinars) : 0,
+        recordingsCount: 0,
       });
     }
 
