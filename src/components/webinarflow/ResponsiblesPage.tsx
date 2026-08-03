@@ -124,7 +124,7 @@ export function ResponsiblesPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader><DialogTitle>{editing ? 'Редактировать' : 'Новый ответственный'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Имя</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Имя" /></div>

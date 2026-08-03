@@ -54,6 +54,10 @@ export function TasksPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState<TaskForm>(emptyTask);
   const [filter, setFilter] = useState<FilterStatus>('all');
+  const [responsibleFilter, setResponsibleFilter] = useState('all');
+  const [webinarSearch, setWebinarSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(() => {
@@ -66,7 +70,19 @@ export function TasksPage() {
 
   useEffect(() => { loadData(); }, [loadData, refreshKey]);
 
-  const filtered = filter === 'all' ? tasks : tasks.filter((t) => t.status === filter);
+  const filtered = tasks.filter((t) => {
+    if (filter !== 'all' && t.status !== filter) return false;
+    if (responsibleFilter !== 'all' && t.responsibleId !== responsibleFilter) return false;
+    if (webinarSearch.trim()) {
+      const q = webinarSearch.trim().toLowerCase();
+      const matchesWebinar = t.webinar?.title?.toLowerCase().includes(q);
+      const matchesTitle = t.title.toLowerCase().includes(q);
+      if (!matchesWebinar && !matchesTitle) return false;
+    }
+    if (dateFrom && new Date(t.dueDate) < new Date(`${dateFrom}T00:00:00`)) return false;
+    if (dateTo && new Date(t.dueDate) > new Date(`${dateTo}T23:59:59`)) return false;
+    return true;
+  });
 
   const openCreate = () => { setEditing(null); setForm(emptyTask); setDialogOpen(true); };
   const openEdit = (t: Task) => {
@@ -150,6 +166,24 @@ export function TasksPage() {
         ))}
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        <Input
+          placeholder="Поиск по задаче или вебинару..."
+          value={webinarSearch}
+          onChange={(e) => setWebinarSearch(e.target.value)}
+          className="flex-1"
+        />
+        <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+          <SelectTrigger className="sm:w-56"><SelectValue placeholder="Все ответственные" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все ответственные</SelectItem>
+            {responsibles.map((r) => (<SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>))}
+          </SelectContent>
+        </Select>
+        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="sm:w-40" title="С даты" />
+        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="sm:w-40" title="По дату" />
+      </div>
+
       {filtered.length === 0 ? (
         <Card><CardContent className="p-12 text-center">
           <CheckSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -203,7 +237,7 @@ export function TasksPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader><DialogTitle>{editing ? 'Редактировать задачу' : 'Новая задача'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Название</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Название задачи" /></div>
