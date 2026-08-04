@@ -37,7 +37,7 @@ const statusLabels: Record<string, { label: string; className: string }> = {
   done: { label: 'Готово', className: 'bg-[#1E5BEB]/10 text-[#1E5BEB]' },
 };
 
-type FilterStatus = 'all' | 'pending' | 'in_progress' | 'done';
+type FilterStatus = 'all' | 'pending' | 'in_progress' | 'done' | 'overdue';
 type TaskForm = { title: string; webinarId: string; responsibleId: string; taskType: Task['taskType']; dueDate: string; dueTime: string; reminderTime: string; status: Task['status'] };
 
 const emptyTask: TaskForm = { title: '', webinarId: '', responsibleId: '', taskType: 'general', dueDate: '', dueTime: '', reminderTime: '', status: 'pending' };
@@ -71,7 +71,9 @@ export function TasksPage() {
   useEffect(() => { loadData(); }, [loadData, refreshKey]);
 
   const filtered = tasks.filter((t) => {
-    if (filter !== 'all' && t.status !== filter) return false;
+    const isOverdue = t.status !== 'done' && new Date(t.dueDate) < new Date();
+    if (filter === 'overdue' && !isOverdue) return false;
+    if (filter !== 'all' && filter !== 'overdue' && t.status !== filter) return false;
     if (responsibleFilter !== 'all' && t.responsibleId !== responsibleFilter) return false;
     if (webinarSearch.trim()) {
       const q = webinarSearch.trim().toLowerCase();
@@ -132,6 +134,7 @@ export function TasksPage() {
 
   const filterTabs: { value: FilterStatus; label: string; count: number }[] = [
     { value: 'all', label: 'Все', count: tasks.length },
+    { value: 'overdue', label: 'Просрочено', count: tasks.filter((t) => t.status !== 'done' && new Date(t.dueDate) < new Date()).length },
     { value: 'pending', label: 'В ожидании', count: tasks.filter((t) => t.status === 'pending').length },
     { value: 'in_progress', label: 'В работе', count: tasks.filter((t) => t.status === 'in_progress').length },
     { value: 'done', label: 'Выполнено', count: tasks.filter((t) => t.status === 'done').length },
@@ -158,7 +161,11 @@ export function TasksPage() {
             key={tab.value}
             variant={filter === tab.value ? 'default' : 'outline'}
             size="sm"
-            className={filter === tab.value ? 'bg-[#1E5BEB] hover:bg-[#1E5BEB]/80' : ''}
+            className={
+              filter === tab.value
+                ? tab.value === 'overdue' ? 'bg-red-500 hover:bg-red-600' : 'bg-[#1E5BEB] hover:bg-[#1E5BEB]/80'
+                : tab.value === 'overdue' && tab.count > 0 ? 'border-red-300 text-red-600 hover:bg-red-50' : ''
+            }
             onClick={() => setFilter(tab.value)}
           >
             {tab.label} <span className="ml-1.5 text-xs opacity-70">({tab.count})</span>
@@ -194,8 +201,9 @@ export function TasksPage() {
           {filtered.map((t) => {
             const tt = taskTypeLabels[t.taskType] || taskTypeLabels.general;
             const st = statusLabels[t.status] || statusLabels.pending;
+            const isOverdue = t.status !== 'done' && new Date(t.dueDate) < new Date();
             return (
-              <Card key={t.id} className="hover:shadow-sm transition-shadow">
+              <Card key={t.id} className={`hover:shadow-sm transition-shadow ${isOverdue ? 'border-l-4 border-l-red-500 bg-red-50/40' : ''}`}>
                 <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <button
@@ -208,13 +216,14 @@ export function TasksPage() {
                       <p className={`font-medium text-sm ${t.status === 'done' ? 'line-through text-muted-foreground' : ''} truncate`}>{t.title}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
                         <Badge variant="outline" className={`text-xs ${tt.color}`}>{tt.label}</Badge>
+                        {isOverdue && <Badge className="text-xs bg-red-500 text-white border-red-500">Просрочено</Badge>}
                         {t.webinar && <span className="text-xs text-muted-foreground">🎬 {t.webinar.title}</span>}
                         {t.responsible && <span className="text-xs text-muted-foreground">👤 {t.responsible.name}</span>}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-xs text-muted-foreground mr-2">
+                    <span className={`text-xs mr-2 ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
                       {format(new Date(t.dueDate), 'd MMM HH:mm', { locale: ru })}
                       {t.reminderTime && ` · ${t.reminderTime}`}
                     </span>
