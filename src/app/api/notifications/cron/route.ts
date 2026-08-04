@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSettings, sendTelegram, fmtDate } from '@/lib/telegram/helpers';
+import { sendEmail } from '@/lib/email';
 
 async function getSetting(key: string): Promise<string> {
   const s = await db.settings.findUnique({ where: { key } });
@@ -10,7 +11,7 @@ async function setSetting(key: string, value: string) {
   await db.settings.upsert({ where: { key }, update: { value }, create: { key, value } });
 }
 
-async function sendMorningSummary(chatId: string) {
+async function sendMorningSummary(chatId: string, opts: { telegram: boolean; email: boolean }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
   const lastSent = await getSetting('cron_morning_sent');
@@ -32,28 +33,42 @@ async function sendMorningSummary(chatId: string) {
   text += `<b>На сегодня (${todayT.length}):</b>\n`;
   for (const t of todayT) { const who = t.responsible ? ` — <b>${t.responsible.name}</b>` : ''; const time = t.dueDate ? ` ⏰ ${new Date(t.dueDate).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : ''; text += `   • ${t.title}${who}${time}\n`; }
 
-  if (chatId) { const r = await sendTelegram(chatId, text); if (r.ok) sent++; }
+  if (opts.telegram && chatId) { const r = await sendTelegram(chatId, text); if (r.ok) sent++; }
 
   const byResp = new Map<string, typeof tasks>();
   for (const t of tasks) { const key = t.responsibleId || '_none'; if (!byResp.has(key)) byResp.set(key, []); byResp.get(key)!.push(t); }
   for (const [, respTasks] of byResp) {
     const resp = respTasks[0].responsible;
-    if (!resp?.telegram) continue;
-    let pText = `☀️ <b>Доброе утро, ${resp.name}!</b>\n\nНа сегодня <b>${respTasks.length}</b> задач:\n\n`;
-    for (const t of respTasks) { const isOverdue = new Date(t.dueDate) < today; pText += `${isOverdue ? '🔴' : '⚪'} ${t.title}\n`; }
-    const r = await sendTelegram(resp.telegram, pText); if (r.ok) sent++;
+    if (!resp) continue;
+
+    if (opts.telegram && resp.telegram) {
+      let pText = `☀️ <b>Доброе утро, ${resp.name}!</b>\n\nНа сегодня <b>${respTasks.length}</b> задач:\n\n`;
+      for (const t of respTasks) { const isOverdue = new Date(t.dueDate) < today; pText += `${isOverdue ? '🔴' : '⚪'} ${t.title}\n`; }
+      const r = await sendTelegram(resp.telegram, pText); if (r.ok) sent++;
+    }
+
+    if (opts.email && resp.email) {
+      const rows = respTasks.map((t) => {
+        const isOverdue = new Date(t.dueDate) < today;
+        const time = new Date(t.dueDate).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        return `<li>${isOverdue ? '🔴' : '⚪'} <b>${t.title}</b> — ${time}${t.webinar ? ` (${t.webinar.title})` : ''}</li>`;
+      }).join('');
+      const html = `<p>Доброе утро, ${resp.name}!</p><p>На сегодня ${respTasks.length} задач:</p><ul>${rows}</ul>`;
+      const r = await sendEmail(resp.email, `Задачи на сегодня (${fmtDate(new Date())})`, html);
+      if (r.ok) sent++;
+    }
   }
   await setSetting('cron_morning_sent', today.toISOString().slice(0, 10));
   return { sent };
 }
 
-async function send30minReminders() {
+async function send30minReminders(opts: { telegram: boolean; email: boolean }) {
   const now = new Date();
   const windowStart = new Date(now.getTime() + 25 * 60000);
   const windowEnd = new Date(now.getTime() + 35 * 60000);
   const tasks = await db.task.findMany({
     where: { status: { in: ['pending', 'in_progress'] }, dueDate: { gte: windowStart, lte: windowEnd } },
-    include: { responsible: { select: { name: true, telegram: true } }, webinar: { select: { title: true } } },
+    include: { responsible: { select: { name: true, telegram: true, email: true } }, webinar: { select: { title: true } } },
   });
   if (tasks.length === 0) return { sent: 0, reason: 'no_upcoming' };
   let sent = 0;
@@ -63,7 +78,12 @@ async function send30minReminders() {
     const time = new Date(t.dueDate).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     const webinar = t.webinar ? `\n\n🎬 Вебинар: ${t.webinar.title}` : '';
     const text = `⚠️ <b>Через 30 минут</b>\n\n📅 ${time}\n📝 <b>${t.title}</b>${webinar}`;
-    if (t.responsible?.telegram) { const r = await sendTelegram(t.responsible.telegram, text); if (r.ok) sent++; }
+    if (opts.telegram && t.responsible?.telegram) { const r = await sendTelegram(t.responsible.telegram, text); if (r.ok) sent++; }
+    if (opts.email && t.responsible?.email) {
+      const html = `<p>Через 30 минут: <b>${t.title}</b></p><p>Время: ${time}</p>${t.webinar ? `<p>Вебинар: ${t.webinar.title}</p>` : ''}`;
+      const r = await sendEmail(t.responsible.email, `Через 30 минут: ${t.title}`, html);
+      if (r.ok) sent++;
+    }
     await setSetting(`reminded_${t.id}`, new Date().toISOString());
   }
   return { sent };
@@ -76,13 +96,17 @@ export async function GET(req: Request) {
   }
   try {
     const settings = await getSettings();
-    if (settings.telegramEnabled !== 'true') return NextResponse.json({ status: 'disabled' });
+    const telegramOn = settings.telegramEnabled === 'true';
+    const emailOn = settings.emailEnabled === 'true';
+    if (!telegramOn && !emailOn) return NextResponse.json({ status: 'disabled' });
+
     const chatId = settings.telegramChatId;
     const hour = parseInt(new Date().toLocaleTimeString('en-US', { timeZone: 'Europe/Moscow', hour: '2-digit', hour12: false }));
+    const opts = { telegram: telegramOn, email: emailOn };
     const results: Record<string, unknown> = {};
-    if (hour >= 9 && hour < 10) results.morning = await sendMorningSummary(chatId || '');
-    results.reminders = await send30minReminders();
-    return NextResponse.json({ status: 'ok', mskHour: hour, ...results });
+    if (hour >= 9 && hour < 10) results.morning = await sendMorningSummary(chatId || '', opts);
+    results.reminders = await send30minReminders(opts);
+    return NextResponse.json({ status: 'ok', mskHour: hour, telegramOn, emailOn, ...results });
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown' }, { status: 500 });
   }

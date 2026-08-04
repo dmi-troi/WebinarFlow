@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   taskShiftDirection: 'back',
   maxShiftDays: '7',
   autoRecalc: 'true',
+  emailEnabled: 'false',
 };
 
 export async function GET() {
