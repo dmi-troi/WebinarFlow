@@ -29,8 +29,8 @@ export async function PUT(request: Request) {
     where: { id: data.id },
     data: {
       name: data.name,
-      email: data.email !== undefined ? data.email : undefined,
-      telegram: data.telegram !== undefined ? data.telegram : undefined,
+      email: data.email !== undefined ? (data.email || null) : undefined,
+      telegram: data.telegram !== undefined ? (data.telegram || null) : undefined,
       isActive: data.isActive !== undefined ? data.isActive : undefined,
     },
     include: { _count: { select: { webinars: true, tasks: true } } },

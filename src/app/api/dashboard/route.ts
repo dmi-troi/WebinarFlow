@@ -2,12 +2,14 @@ import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
+  // Moscow timezone offset to get correct "today" on Render (UTC)
+  const mskOffset = 3 * 60 * 60 * 1000;
   const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd = new Date(todayStart);
-  todayEnd.setDate(todayEnd.getDate() + 1);
-  const tomorrowEnd = new Date(todayEnd);
-  tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+  const mskNow = new Date(now.getTime() + mskOffset);
+  const todayStart = new Date(mskNow.getFullYear(), mskNow.getMonth(), mskNow.getDate());
+  todayStart.setTime(todayStart.getTime() - mskOffset); // back to UTC for DB query
+  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowEnd = new Date(todayEnd.getTime() + 24 * 60 * 60 * 1000);
 
   const [totalWebinars, activeWebinars, totalTasks, todayTasks, upcomingTasks] =
     await Promise.all([
