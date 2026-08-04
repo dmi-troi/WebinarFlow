@@ -10,14 +10,15 @@ function createPrismaClient() {
   const dbUrl = process.env.DATABASE_URL || ''
 
   // Если DATABASE_URL — это Turso (libsql:// или https://),
-  // используем адаптер, а для валидации схемы подменяем на file:
+  // используем адаптер, а для валидации схемы подменяем URL через overrideDatasources
   if (dbUrl.startsWith('libsql://') || dbUrl.startsWith('https://')) {
-    // Prisma требует file: для provider="sqlite" — подменяем перед созданием клиента
-    process.env.DATABASE_URL = 'file:local.db'
     const libsql = createClient({ url: dbUrl })
     const adapter = new PrismaLibSql(libsql)
     return new PrismaClient({
       adapter,
+      overrideDatasources: {
+        db: { url: 'file:local.db' },
+      },
       log: process.env.NODE_ENV === 'production' ? [] : ['query'],
     })
   }
