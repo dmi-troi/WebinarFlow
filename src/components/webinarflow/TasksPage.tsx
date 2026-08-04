@@ -81,7 +81,7 @@ export function TasksPage() {
   const handleSave = async () => {
     const body = {
       title: form.title,
-      dueDate: `${form.dueDate}T${form.dueTime || '09:00'}`,
+      dueDate: `${form.dueDate}T${form.dueTime || '09:00'}+03:00`,
       webinarId: form.webinarId || null,
       responsibleId: form.responsibleId || null,
       taskType: form.taskType,
@@ -202,9 +202,9 @@ export function TasksPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] grid-rows-[auto_1fr_auto] overflow-hidden">
           <DialogHeader><DialogTitle>{editing ? 'Редактировать задачу' : 'Новая задача'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto min-h-0">
             <div><Label>Название</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Название задачи" /></div>
             <div><Label>Тип задачи</Label>
               <Select value={form.taskType} onValueChange={(v) => setForm({ ...form, taskType: v as any })}>
@@ -218,7 +218,7 @@ export function TasksPage() {
               <div><Label>Дата</Label><Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></div>
               <div><Label>Время</Label><Input type="time" value={form.dueTime} onChange={(e) => setForm({ ...form, dueTime: e.target.value })} /></div>
             </div>
-            <div><Label>Время напоминания (HH:MM)</Label><Input value={form.reminderTime} onChange={(e) => setForm({ ...form, reminderTime: e.target.value })} placeholder="09:00" /></div>
+            <div><Label>Время напоминания</Label><Input type="time" value={form.reminderTime} onChange={(e) => setForm({ ...form, reminderTime: e.target.value })} /></div>
             <div><Label>Вебинар</Label>
               <Select value={form.webinarId} onValueChange={(v) => setForm({ ...form, webinarId: v })}>
                 <SelectTrigger><SelectValue placeholder="Не привязан" /></SelectTrigger>
