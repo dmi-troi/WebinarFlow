@@ -40,7 +40,6 @@ export async function POST(request: Request) {
           responsibleId: task.responsibleId,
           taskType: task.taskType,
           dueDate: task.dueDate,
-          reminderTime: task.reminderTime,
           status: task.status,
         },
       });
@@ -60,7 +59,6 @@ export async function POST(request: Request) {
         responsibleId: task.responsibleId,
         taskType: task.taskType,
         dueDate: task.dueDate,
-        reminderTime: task.reminderTime,
         status: task.status,
       },
     });
@@ -102,7 +100,6 @@ export async function PUT(request: Request) {
         responsibleId: archived.responsibleId,
         taskType: archived.taskType,
         dueDate: archived.dueDate,
-        reminderTime: archived.reminderTime,
         status: archived.status,
       },
     });

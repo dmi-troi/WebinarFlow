@@ -21,7 +21,6 @@ export interface Task {
   responsibleId: string | null;
   taskType: 'unisender' | 'mtsLink' | 'reminder' | 'eventDay' | 'general';
   dueDate: string;
-  reminderTime: string | null;
   status: 'pending' | 'in_progress' | 'done';
   createdAt: string;
   updatedAt: string;

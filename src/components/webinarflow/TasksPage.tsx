@@ -38,9 +38,9 @@ const statusLabels: Record<string, { label: string; className: string }> = {
 };
 
 type FilterStatus = 'all' | 'pending' | 'in_progress' | 'done' | 'overdue';
-type TaskForm = { title: string; webinarId: string; responsibleId: string; taskType: Task['taskType']; dueDate: string; dueTime: string; reminderTime: string; status: Task['status'] };
+type TaskForm = { title: string; webinarId: string; responsibleId: string; taskType: Task['taskType']; dueDate: string; dueTime: string; status: Task['status'] };
 
-const emptyTask: TaskForm = { title: '', webinarId: '', responsibleId: '', taskType: 'general', dueDate: '', dueTime: '', reminderTime: '', status: 'pending' };
+const emptyTask: TaskForm = { title: '', webinarId: '', responsibleId: '', taskType: 'general', dueDate: '', dueTime: '', status: 'pending' };
 
 export function TasksPage() {
   const refreshKey = useAppStore((s) => s.refreshKey);
@@ -92,7 +92,7 @@ export function TasksPage() {
     setForm({
       title: t.title, webinarId: t.webinarId || '', responsibleId: t.responsibleId || '',
       taskType: t.taskType, dueDate: format(new Date(t.dueDate), 'yyyy-MM-dd'), dueTime: format(new Date(t.dueDate), 'HH:mm'),
-      reminderTime: t.reminderTime || '', status: t.status,
+      status: t.status,
     });
     setDialogOpen(true);
   };
@@ -104,7 +104,6 @@ export function TasksPage() {
       webinarId: form.webinarId || null,
       responsibleId: form.responsibleId || null,
       taskType: form.taskType,
-      reminderTime: form.reminderTime || null,
       status: form.status,
     };
     if (editing) {
@@ -225,7 +224,6 @@ export function TasksPage() {
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className={`text-xs mr-2 ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
                       {format(new Date(t.dueDate), 'd MMM HH:mm', { locale: ru })}
-                      {t.reminderTime && ` · ${t.reminderTime}`}
                     </span>
                     <Select value={t.status} onValueChange={(v) => handleStatusChange(t.id, v)}>
                       <SelectTrigger className="w-28 h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -262,7 +260,6 @@ export function TasksPage() {
               <div><Label>Дата</Label><Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></div>
               <div><Label>Время</Label><Input type="time" value={form.dueTime} onChange={(e) => setForm({ ...form, dueTime: e.target.value })} /></div>
             </div>
-            <div><Label>Время напоминания (HH:MM)</Label><Input value={form.reminderTime} onChange={(e) => setForm({ ...form, reminderTime: e.target.value })} placeholder="09:00" /></div>
             <div><Label>Вебинар</Label>
               <Select value={form.webinarId || 'none'} onValueChange={(v) => setForm({ ...form, webinarId: v === 'none' ? '' : v })}>
                 <SelectTrigger><SelectValue placeholder="Не привязан" /></SelectTrigger>

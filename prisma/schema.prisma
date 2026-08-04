@@ -48,7 +48,6 @@ model Task {
   responsibleId String?
   taskType      String   @default("general")
   dueDate       DateTime
-  reminderTime  String?
   status        String   @default("pending")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -82,7 +81,6 @@ model ArchiveTask {
   responsibleId String?
   taskType      String
   dueDate       DateTime
-  reminderTime  String?
   status        String
   archivedAt    DateTime @default(now())
 }
