@@ -64,16 +64,25 @@ export function WebinarsPage() {
   const openDelete = (id: string) => { setDeletingId(id); setDeleteOpen(true); };
 
   const handleSave = async () => {
-    const body = { ...form, date: `${form.date}T${form.time || '12:00'}`, responsibleId: form.responsibleId || null, email: form.email || null };
-    if (editing) {
-      await fetch('/api/webinars', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: editing.id }) });
-      toast.success('Вебинар обновлён');
-    } else {
-      await fetch('/api/webinars', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      toast.success('Вебинар создан');
+    const body = { ...form, date: `${form.date}T${form.time || '12:00'}+03:00`, responsibleId: form.responsibleId || null, email: form.email || null };
+    try {
+      let res: Response;
+      if (editing) {
+        res = await fetch('/api/webinars', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: editing.id }) });
+      } else {
+        res = await fetch('/api/webinars', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(`Ошибка: ${err.error || res.status}`);
+        return;
+      }
+      toast.success(editing ? 'Вебинар обновлён' : 'Вебинар создан');
+      setDialogOpen(false);
+      triggerRefresh();
+    } catch {
+      toast.error('Сетевая ошибка при сохранении');
     }
-    setDialogOpen(false);
-    triggerRefresh();
   };
 
   const handleDelete = async () => {

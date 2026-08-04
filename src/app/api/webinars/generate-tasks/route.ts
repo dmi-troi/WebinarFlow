@@ -19,6 +19,18 @@ export async function POST(request: Request) {
     ? JSON.parse(settingsMap.taskTypeNames)
     : { unisender: 'Юнисендер', mtsLink: 'МТС Link', reminder: 'Напоминание', eventDay: 'День мероприятия' };
 
+  // Default reminder times per task type (HH:MM, Moscow time)
+  const defaultReminders: Record<string, string> = {
+    unisender: '09:00',
+    mtsLink: '10:00',
+    reminder: '09:30',
+    eventDay: '08:00',
+  };
+
+  const customReminders = settingsMap.taskReminderTimes
+    ? JSON.parse(settingsMap.taskReminderTimes)
+    : {};
+
   const tasks = [];
   const taskDefinitions = [
     { key: 'unisender', type: 'unisender' },
@@ -32,6 +44,9 @@ export async function POST(request: Request) {
     const dueDate = new Date(webinar.date);
     dueDate.setDate(dueDate.getDate() - daysBefore);
 
+    // reminderTime defaults per type, overridable in Settings
+    const reminderTime = customReminders[def.type] || defaultReminders[def.type] || null;
+
     const task = await db.task.create({
       data: {
         title: `${typeNames[def.type] || def.type}: ${webinar.title}`,
@@ -39,6 +54,7 @@ export async function POST(request: Request) {
         responsibleId: webinar.responsibleId,
         taskType: def.type,
         dueDate,
+        reminderTime,
         status: 'pending',
       },
     });

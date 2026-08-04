@@ -27,16 +27,18 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   const data = await request.json();
+
+  const updateData: Record<string, unknown> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.date) updateData.date = new Date(data.date);
+  if (data.responsibleId !== undefined) updateData.responsibleId = data.responsibleId;
+  if (data.email !== undefined) updateData.email = data.email;
+  if (data.status !== undefined) updateData.status = data.status;
+
   const webinar = await db.webinar.update({
     where: { id: data.id },
-    data: {
-      title: data.title,
-      description: data.description !== undefined ? data.description : undefined,
-      date: data.date ? new Date(data.date) : undefined,
-      responsibleId: data.responsibleId !== undefined ? data.responsibleId : undefined,
-      email: data.email !== undefined ? data.email : undefined,
-      status: data.status !== undefined ? data.status : undefined,
-    },
+    data: updateData,
     include: { responsible: true, tasks: true },
   });
   return NextResponse.json(webinar);
