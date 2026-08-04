@@ -79,35 +79,39 @@ export function TasksPage() {
   };
 
   const handleSave = async () => {
-    const body = {
+    // Явно определяем reminderTime: строку если заполнено, null если пустое
+    const reminderTime: string | null = form.reminderTime.trim() ? form.reminderTime.trim() : null;
+
+    const body: Record<string, unknown> = {
       title: form.title,
       dueDate: `${form.dueDate}T${form.dueTime || '09:00'}+03:00`,
       webinarId: form.webinarId || null,
       responsibleId: form.responsibleId || null,
       taskType: form.taskType,
-      reminderTime: form.reminderTime || null,
+      reminderTime,
       status: form.status,
     };
+    if (editing) body.id = editing.id;
+
     try {
-      let res: Response;
-      if (editing) {
-        res = await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: editing.id }) });
-      } else {
-        res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      }
+      const res = await fetch('/api/tasks', {
+        method: editing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         toast.error(`Ошибка сохранения: ${err.error || res.status}`);
         return;
       }
       const saved = await res.json();
-      if (body.reminderTime && !saved.reminderTime) {
+      if (reminderTime && !saved.reminderTime) {
         toast.error('Время напоминания не сохранилось в базе данных');
       }
       toast.success(editing ? 'Задача обновлена' : 'Задача создана');
       setDialogOpen(false);
       triggerRefresh();
-    } catch (e) {
+    } catch {
       toast.error('Сетевая ошибка при сохранении');
     }
   };
@@ -229,9 +233,9 @@ export function TasksPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Дата</Label><Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></div>
-              <div><Label>Время</Label><Input type="time" value={form.dueTime} onChange={(e) => setForm({ ...form, dueTime: e.target.value })} /></div>
+              <div><Label>Время</Label><Input type="time" step={60} value={form.dueTime} onChange={(e) => setForm({ ...form, dueTime: e.target.value })} /></div>
             </div>
-            <div><Label>Время напоминания</Label><Input type="time" value={form.reminderTime} onChange={(e) => setForm({ ...form, reminderTime: e.target.value })} /></div>
+            <div><Label>Время напоминания</Label><Input type="time" step={60} placeholder="--:--" value={form.reminderTime} onChange={(e) => setForm({ ...form, reminderTime: e.target.value })} /></div>
             <div><Label>Вебинар</Label>
               <Select value={form.webinarId} onValueChange={(v) => setForm({ ...form, webinarId: v })}>
                 <SelectTrigger><SelectValue placeholder="Не привязан" /></SelectTrigger>
