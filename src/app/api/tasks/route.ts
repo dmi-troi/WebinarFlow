@@ -28,17 +28,22 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   const data = await request.json();
+
+  // Строим объект обновления ТОЛЬКО из полей, которые пришли в запросе.
+  // Никогда не передаём undefined в Prisma — это исключает
+  // случайное обнуление nullable-полей (reminderTime, webinarId, …)
+  const updateData: Record<string, unknown> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.webinarId !== undefined) updateData.webinarId = data.webinarId;
+  if (data.responsibleId !== undefined) updateData.responsibleId = data.responsibleId;
+  if (data.taskType !== undefined) updateData.taskType = data.taskType;
+  if (data.dueDate) updateData.dueDate = new Date(data.dueDate);
+  if (data.reminderTime !== undefined) updateData.reminderTime = data.reminderTime;
+  if (data.status !== undefined) updateData.status = data.status;
+
   const task = await db.task.update({
     where: { id: data.id },
-    data: {
-      title: data.title,
-      webinarId: data.webinarId !== undefined ? data.webinarId : undefined,
-      responsibleId: data.responsibleId !== undefined ? data.responsibleId : undefined,
-      taskType: data.taskType !== undefined ? data.taskType : undefined,
-      dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-      reminderTime: data.reminderTime !== undefined ? data.reminderTime : undefined,
-      status: data.status !== undefined ? data.status : undefined,
-    },
+    data: updateData,
     include: { webinar: true, responsible: true },
   });
   return NextResponse.json(task);

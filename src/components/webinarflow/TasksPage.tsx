@@ -88,15 +88,28 @@ export function TasksPage() {
       reminderTime: form.reminderTime || null,
       status: form.status,
     };
-    if (editing) {
-      await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: editing.id }) });
-      toast.success('Задача обновлена');
-    } else {
-      await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      toast.success('Задача создана');
+    try {
+      let res: Response;
+      if (editing) {
+        res = await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: editing.id }) });
+      } else {
+        res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(`Ошибка сохранения: ${err.error || res.status}`);
+        return;
+      }
+      const saved = await res.json();
+      if (body.reminderTime && !saved.reminderTime) {
+        toast.error('Время напоминания не сохранилось в базе данных');
+      }
+      toast.success(editing ? 'Задача обновлена' : 'Задача создана');
+      setDialogOpen(false);
+      triggerRefresh();
+    } catch (e) {
+      toast.error('Сетевая ошибка при сохранении');
     }
-    setDialogOpen(false);
-    triggerRefresh();
   };
 
   const handleDelete = async () => {
