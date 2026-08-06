@@ -38,7 +38,6 @@ export function SettingsPage() {
   const [tgSending, setTgSending] = useState(false);
   const [tgStatus, setTgStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [tgEnabled, setTgEnabled] = useState(false);
-  const [emailEnabled, setEmailEnabled] = useState(false);
   const [mtsApiKey, setMtsApiKey] = useState('');
   const [mtsBaseUrl, setMtsBaseUrl] = useState('https://webinar.mts-link.ru/api/v1');
   const [mtsStatus, setMtsStatus] = useState<'idle' | 'ok' | 'error'>('idle');
@@ -63,7 +62,6 @@ export function SettingsPage() {
         setTgToken(data.telegramBotToken || '');
         setTgChatId(data.telegramChatId || '');
         setTgEnabled(data.telegramEnabled === 'true');
-        setEmailEnabled(data.emailEnabled === 'true');
         setMtsApiKey(data.mtsLinkApiKey || '');
         setMtsBaseUrl(data.mtsLinkBaseUrl || 'https://webinar.mts-link.ru/api/v1');
         setHasPassword(!!data.loginPassword);
@@ -95,7 +93,6 @@ export function SettingsPage() {
         telegramBotToken: tgToken,
         telegramChatId: tgChatId,
         telegramEnabled: String(tgEnabled),
-        emailEnabled: String(emailEnabled),
         mtsLinkApiKey: mtsApiKey,
         mtsLinkBaseUrl: mtsBaseUrl,
         loginPassword: loginPw || null,
@@ -222,29 +219,6 @@ export function SettingsPage() {
             {tgStatus === 'ok' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
             {tgStatus === 'error' && <AlertCircle className="h-4 w-4 text-red-500" />}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Email Card */}
-      <Card className="mb-4 border-[#1E5BEB]/20">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <span className="text-xl">📧</span> Email уведомления
-          </CardTitle>
-          <CardDescription>Дублировать утреннюю сводку и напоминания на почту (через Resend)</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} />
-            <Label>Включить email-уведомления</Label>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Письма приходят на адрес, указанный у ответственного в разделе{' '}
-            <button type="button" onClick={() => setCurrentPage('responsibles')} className="text-[#1E5BEB] underline">
-              «Ответственные»
-            </button>.
-            API-ключ Resend настраивается переменной окружения на сервере (RESEND_API_KEY уже задана).
-          </p>
         </CardContent>
       </Card>
 
