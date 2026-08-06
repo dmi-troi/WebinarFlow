@@ -5,10 +5,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-export async function POST(req: Request) {
-  if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function POST() {
 
   const tasks = await db.task.findMany({ select: { id: true, dueDate: true, title: true } });
   const results: { id: string; title: string; was: string; now: string }[] = [];

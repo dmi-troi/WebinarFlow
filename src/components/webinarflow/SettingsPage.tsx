@@ -28,6 +28,63 @@ const defaults: AppSettings = {
   autoRecalc: 'true',
 };
 
+function MigrateTimezoneCard() {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [result, setResult] = useState<string>('');
+
+  const run = async () => {
+    setStatus('loading');
+    try {
+      const res = await fetch('/api/admin/fix-timezones', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus('done');
+        setResult(`Исправлено задач: ${data.fixed}`);
+      } else {
+        setStatus('error');
+        setResult(data.error || 'Ошибка');
+      }
+    } catch (e: any) {
+      setStatus('error');
+      setResult(e.message);
+    }
+  };
+
+  return (
+    <Card className="border-amber-200 bg-amber-50/40">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Clock className="h-5 w-5 text-amber-500" /> Исправить время задач (одноразово)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Задачи, созданные до обновления системы, имеют время сдвинутое на +3 часа.
+          Нажмите кнопку один раз — время всех задач будет скорректировано автоматически.
+        </p>
+        {status === 'done' && (
+          <div className="flex items-center gap-2 text-green-600 text-sm">
+            <CheckCircle2 className="h-4 w-4" /> {result} — готово!
+          </div>
+        )}
+        {status === 'error' && (
+          <div className="flex items-center gap-2 text-red-500 text-sm">
+            <AlertCircle className="h-4 w-4" /> {result}
+          </div>
+        )}
+        <Button
+          onClick={run}
+          disabled={status === 'loading' || status === 'done'}
+          variant="outline"
+          className="border-amber-400 text-amber-700 hover:bg-amber-100"
+        >
+          {status === 'loading' ? 'Исправляю...' : status === 'done' ? '✓ Выполнено' : 'Исправить время задач'}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
   const setCurrentPage = useAppStore((s) => s.setCurrentPage);
   const [s, setS] = useState<AppSettings>(defaults);
@@ -362,6 +419,9 @@ export function SettingsPage() {
       <Button onClick={handleSave} disabled={saving} className="bg-[#1E5BEB] hover:bg-[#1E5BEB]/80">
         <Save className="h-4 w-4 mr-2" />{saving ? 'Сохранение...' : 'Сохранить все настройки'}
       </Button>
+
+      {/* Одноразовая миграция таймзон — удалить после применения */}
+      <MigrateTimezoneCard />
     </div>
   );
 }
