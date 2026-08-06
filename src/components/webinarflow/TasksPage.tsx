@@ -245,9 +245,9 @@ export function TasksPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? 'Редактировать задачу' : 'Новая задача'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0 w-full">
             <div><Label>Название</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Название задачи" /></div>
             <div><Label>Тип задачи</Label>
               <Select value={form.taskType} onValueChange={(v) => setForm({ ...form, taskType: v as any })}>

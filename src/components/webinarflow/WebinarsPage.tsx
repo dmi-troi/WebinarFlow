@@ -295,9 +295,9 @@ export function WebinarsPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? 'Редактировать вебинар' : 'Новый вебинар'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0 w-full">
             <div><Label>Название</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Название вебинара" /></div>
             <div><Label>Описание</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Описание" rows={3} /></div>
             <div className="grid grid-cols-2 gap-3">
