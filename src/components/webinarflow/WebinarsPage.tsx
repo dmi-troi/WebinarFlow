@@ -23,6 +23,7 @@ import { Plus, Pencil, Trash2, Zap, Download, ExternalLink, RefreshCw, Users, Vi
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { mskInputToDate, mskDateInputValue, mskTimeInputValue, formatMsk } from '@/lib/msk-time';
 
 const statusLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; className: string }> = {
   planned: { label: 'Планируется', variant: 'outline', className: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -71,11 +72,11 @@ export function WebinarsPage() {
   useEffect(() => { loadData(); }, [loadData, refreshKey]);
 
   const openCreate = () => { setEditing(null); setForm(emptyWebinar); setDialogOpen(true); };
-  const openEdit = (w: Webinar) => { setEditing(w); setForm({ title: w.title, description: w.description || '', date: format(new Date(w.date), 'yyyy-MM-dd'), time: format(new Date(w.date), 'HH:mm'), responsibleId: w.responsibleId || '', email: w.email || '', status: w.status }); setDialogOpen(true); };
+  const openEdit = (w: Webinar) => { setEditing(w); setForm({ title: w.title, description: w.description || '', date: mskDateInputValue(w.date), time: mskTimeInputValue(w.date), responsibleId: w.responsibleId || '', email: w.email || '', status: w.status }); setDialogOpen(true); };
   const openDelete = (id: string) => { setDeletingId(id); setDeleteOpen(true); };
 
   const handleSave = async () => {
-    const body = { ...form, date: `${form.date}T${form.time || '12:00'}`, responsibleId: form.responsibleId || null, email: form.email || null };
+    const body = { ...form, date: mskInputToDate(form.date, form.time || '12:00'), responsibleId: form.responsibleId || null, email: form.email || null };
     if (editing) {
       await fetch('/api/webinars', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: editing.id }) });
       toast.success('Вебинар обновлён');
@@ -188,7 +189,7 @@ export function WebinarsPage() {
                         <Badge className={st.className}>{st.label}</Badge>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                        <span>{format(new Date(w.date), 'd MMMM yyyy, HH:mm', { locale: ru })}</span>
+                        <span>{formatMsk(w.date, 'd MMMM yyyy, HH:mm')}</span>
                         {w.responsible && <span>{w.responsible.name}</span>}
                         {w.tasks && w.tasks.length > 0 && <span>{w.tasks.length} задач</span>}
                       </div>

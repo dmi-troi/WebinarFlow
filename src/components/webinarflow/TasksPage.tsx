@@ -22,6 +22,7 @@ import { Plus, Pencil, Trash2, CheckSquare, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { mskInputToDate, mskDateInputValue, mskTimeInputValue, formatMsk } from '@/lib/msk-time';
 
 const taskTypeLabels: Record<string, { label: string; color: string }> = {
   unisender: { label: 'Юнисендер', color: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -81,8 +82,8 @@ export function TasksPage() {
       const matchesTitle = t.title.toLowerCase().includes(q);
       if (!matchesWebinar && !matchesTitle) return false;
     }
-    if (dateFrom && new Date(t.dueDate) < new Date(`${dateFrom}T00:00:00`)) return false;
-    if (dateTo && new Date(t.dueDate) > new Date(`${dateTo}T23:59:59`)) return false;
+    if (dateFrom && new Date(t.dueDate) < mskInputToDate(dateFrom, '00:00')) return false;
+    if (dateTo && new Date(t.dueDate) > mskInputToDate(dateTo, '23:59')) return false;
     return true;
   });
 
@@ -91,7 +92,7 @@ export function TasksPage() {
     setEditing(t);
     setForm({
       title: t.title, webinarId: t.webinarId || '', responsibleId: t.responsibleId || '',
-      taskType: t.taskType, dueDate: format(new Date(t.dueDate), 'yyyy-MM-dd'), dueTime: format(new Date(t.dueDate), 'HH:mm'),
+      taskType: t.taskType, dueDate: mskDateInputValue(t.dueDate), dueTime: mskTimeInputValue(t.dueDate),
       status: t.status,
     });
     setDialogOpen(true);
@@ -100,7 +101,7 @@ export function TasksPage() {
   const handleSave = async () => {
     const body = {
       title: form.title,
-      dueDate: `${form.dueDate}T${form.dueTime || '09:00'}`,
+      dueDate: mskInputToDate(form.dueDate, form.dueTime || '09:00'),
       webinarId: form.webinarId || null,
       responsibleId: form.responsibleId || null,
       taskType: form.taskType,
@@ -223,7 +224,7 @@ export function TasksPage() {
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className={`text-xs mr-2 ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-                      {format(new Date(t.dueDate), 'd MMM HH:mm', { locale: ru })}
+                      {formatMsk(t.dueDate, 'd MMM HH:mm')}
                     </span>
                     <Select value={t.status} onValueChange={(v) => handleStatusChange(t.id, v)}>
                       <SelectTrigger className="w-28 h-7 text-xs"><SelectValue /></SelectTrigger>

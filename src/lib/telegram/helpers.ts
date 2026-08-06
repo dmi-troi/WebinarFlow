@@ -64,10 +64,10 @@ export async function deleteWebhook(): Promise<boolean> {
 
 export function fmtDate(d: Date | string): string {
   const date = typeof d === 'string' ? new Date(d) : d;
-  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return date.toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 export function fmtDateTime(d: Date | string): string {
   const date = typeof d === 'string' ? new Date(d) : d;
-  return date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
