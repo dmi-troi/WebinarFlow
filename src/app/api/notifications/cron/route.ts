@@ -90,7 +90,7 @@ async function sendMorningSummary(chatId: string, telegramOn: boolean) {
   return { sent };
 }
 
-async function send30minReminders(telegramOn: boolean) {
+async function send30minReminders(telegramOn: boolean, chatId: string) {
   const now = new Date();
   const windowStart = new Date(now.getTime() + 25 * 60_000);
   const windowEnd   = new Date(now.getTime() + 35 * 60_000);
@@ -112,12 +112,19 @@ async function send30minReminders(telegramOn: boolean) {
     const webinar = t.webinar ? `\n\n🎬 Вебинар: ${t.webinar.title}` : '';
     const text = `⚠️ <b>Через 30 минут</b>\n\n📅 ${time} МСК\n📝 <b>${t.title}</b>${webinar}`;
 
+    let notified = false;
+
     if (telegramOn && t.responsible?.telegram) {
       const r = await sendTelegram(t.responsible.telegram, text);
-      if (r.ok) sent++;
+      if (r.ok) { sent++; notified = true; }
+    } else if (telegramOn && chatId) {
+      // Нет личного Telegram у ответственного — шлём в общий чат
+      const r = await sendTelegram(chatId, text);
+      if (r.ok) { sent++; notified = true; }
     }
 
-    await setSetting(key, now.toISOString());
+    // Помечаем как напомнено только если реально отправили
+    if (notified) await setSetting(key, now.toISOString());
   }
   return { sent };
 }
@@ -141,7 +148,7 @@ export async function GET(req: Request) {
     const results: Record<string, unknown> = {};
 
     if (mskHour >= 9 && mskHour < 10) results.morning = await sendMorningSummary(chatId || '', telegramOn);
-    results.reminders = await send30minReminders(telegramOn);
+    results.reminders = await send30minReminders(telegramOn, chatId || '');
 
     return NextResponse.json({ status: 'ok', mskHour, telegramOn, ...results });
   } catch (e: unknown) {
