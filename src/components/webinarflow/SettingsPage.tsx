@@ -263,7 +263,26 @@ export function SettingsPage() {
               <a href="https://t.me/getmyid_bot" target="_blank" className="text-[#1E5BEB] underline">@getmyid_bot</a>
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={async () => {
+                const baseUrl = 'https://webinarflow.onrender.com';
+                const res = await fetch('/api/telegram/setup', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'set-webhook', baseUrl }),
+                });
+                const d = await res.json();
+                if (d.ok) toast.success('Вебхук установлен на ' + baseUrl);
+                else toast.error('Ошибка: ' + (d.error || JSON.stringify(d)));
+              }}
+              variant="outline"
+              size="sm"
+              disabled={!tgToken}
+            >
+              <Link2 className="h-3.5 w-3.5 mr-1.5" />
+              Установить вебхук
+            </Button>
             <Button
               onClick={handleTestTg}
               disabled={tgSending || !tgToken || !tgChatId}
