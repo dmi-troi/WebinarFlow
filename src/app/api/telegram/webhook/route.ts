@@ -68,7 +68,14 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const { getSettings } = await import('@/lib/telegram/helpers');
   const settings = await getSettings();
-  return NextResponse.json({ configured: !!settings.telegramBotToken, enabled: settings.telegramEnabled === 'true', chatId: settings.telegramChatId || null });
+  const token = settings.telegramBotToken;
+  if (!token) return NextResponse.json({ error: 'Токен не задан' }, { status: 400 });
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`);
+    const data = await res.json();
+    return NextResponse.json(data);
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
 }
