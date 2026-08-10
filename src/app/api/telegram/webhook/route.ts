@@ -27,7 +27,9 @@ export async function POST(req: NextRequest) {
     // Bind code
     if (!text.startsWith('/') && /^[A-Za-z0-9]{5,8}$/.test(text)) {
       const code = text.toUpperCase();
+      console.log(`[webhook] bind attempt: code=${code}, chatId=${chatId}`);
       const bindSetting = await db.settings.findUnique({ where: { key: `bind_code_${code}` } });
+      console.log(`[webhook] bind_code_${code} in DB:`, bindSetting ? bindSetting.value : 'NOT FOUND');
       if (bindSetting) {
         const responsible = await db.responsible.findUnique({ where: { id: bindSetting.value }, select: { name: true } });
         if (responsible) {

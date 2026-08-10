@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       if (!responsibleId) return NextResponse.json({ error: 'Укажите responsibleId' }, { status: 400 });
       const code = crypto.randomBytes(3).toString('hex').toUpperCase();
       await db.settings.upsert({ where: { key: `bind_code_${code}` }, update: { value: responsibleId }, create: { key: `bind_code_${code}`, value: responsibleId } });
+      console.log(`[bind] Generated code=${code} for responsibleId=${responsibleId}, key=bind_code_${code}`);
       return NextResponse.json({ code });
     }
     if (body.action === 'bind-chat') {
