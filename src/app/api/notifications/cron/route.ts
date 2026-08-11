@@ -129,6 +129,30 @@ async function send30minReminders(telegramOn: boolean, chatId: string) {
   return { sent };
 }
 
+async function autoArchiveDoneTasks() {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60_000);
+  const doneTasks = await db.task.findMany({
+    where: { status: 'done', updatedAt: { lt: cutoff } },
+  });
+  if (doneTasks.length === 0) return { archived: 0 };
+
+  for (const task of doneTasks) {
+    await db.archiveTask.create({
+      data: {
+        originalId: task.id,
+        title: task.title,
+        webinarId: task.webinarId,
+        responsibleId: task.responsibleId,
+        taskType: task.taskType,
+        dueDate: task.dueDate,
+        status: task.status,
+      },
+    });
+    await db.task.delete({ where: { id: task.id } });
+  }
+  return { archived: doneTasks.length };
+}
+
 export async function GET(req: Request) {
   const ua = req.headers.get('user-agent') || '';
   if (
@@ -149,6 +173,7 @@ export async function GET(req: Request) {
 
     if (mskHour >= 9 && mskHour < 10) results.morning = await sendMorningSummary(chatId || '', telegramOn);
     results.reminders = await send30minReminders(telegramOn, chatId || '');
+    results.autoArchive = await autoArchiveDoneTasks();
 
     return NextResponse.json({ status: 'ok', mskHour, telegramOn, ...results });
   } catch (e: unknown) {
