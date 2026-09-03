@@ -18,7 +18,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, CheckSquare, Filter } from 'lucide-react';
+import { Plus, Pencil, Trash2, CheckSquare, Filter, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -29,6 +29,7 @@ const taskTypeLabels: Record<string, { label: string; color: string }> = {
   mtsLink: { label: 'МТС Link', color: 'bg-violet-100 text-violet-700 border-violet-200' },
   reminder: { label: 'Напоминание', color: 'bg-amber-100 text-amber-700 border-amber-200' },
   eventDay: { label: 'День мероприятия', color: 'bg-rose-100 text-rose-700 border-rose-200' },
+  sms: { label: 'SMS', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
   general: { label: 'Общая', color: 'bg-gray-100 text-gray-700 border-gray-200' },
 };
 
@@ -124,6 +125,20 @@ export function TasksPage() {
     toast.success('Задача удалена');
     setDeleteOpen(false);
     triggerRefresh();
+  };
+
+  const handleArchive = async (id: string) => {
+    const res = await fetch('/api/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'task', id }),
+    });
+    if (res.ok) {
+      toast.success('Задача перемещена в архив');
+      triggerRefresh();
+    } else {
+      toast.error('Не удалось архивировать');
+    }
   };
 
   const handleStatusChange = async (id: string, status: string) => {
@@ -235,6 +250,7 @@ export function TasksPage() {
                       </SelectContent>
                     </Select>
                     <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7" title="В архив" onClick={() => handleArchive(t.id)}><Archive className="h-3.5 w-3.5 text-muted-foreground" /></Button>
                     <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7 ml-1" onClick={() => { setDeletingId(t.id); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5 text-red-400" /></Button>
                   </div>
                 </CardContent>

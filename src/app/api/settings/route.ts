@@ -7,12 +7,14 @@ const DEFAULT_SETTINGS: Record<string, string> = {
     mtsLink: 1,
     reminder: 1,
     eventDay: 0,
+    sms: 0,
   }),
   taskTypeNames: JSON.stringify({
     unisender: 'Юнисендер',
     mtsLink: 'МТС Link',
     reminder: 'Напоминание',
     eventDay: 'День мероприятия',
+    sms: 'SMS',
     general: 'Общая',
   }),
   taskShiftDirection: 'back',
@@ -35,6 +37,24 @@ export async function GET() {
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
     if (!(key in map)) map[key] = value;
   }
+
+  // Мягкая миграция: если у существующего пользователя taskPeriods/taskTypeNames
+  // уже сохранены в БД (без ключа 'sms'), добавляем его, не трогая остальное.
+  try {
+    const periods = JSON.parse(map.taskPeriods);
+    if (!('sms' in periods)) {
+      periods.sms = 0;
+      map.taskPeriods = JSON.stringify(periods);
+    }
+  } catch { /* ignore malformed JSON */ }
+  try {
+    const names = JSON.parse(map.taskTypeNames);
+    if (!('sms' in names)) {
+      names.sms = 'SMS';
+      map.taskTypeNames = JSON.stringify(names);
+    }
+  } catch { /* ignore malformed JSON */ }
+
   return NextResponse.json(map);
 }
 

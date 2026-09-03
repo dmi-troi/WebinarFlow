@@ -19,7 +19,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Zap, Download, ExternalLink, RefreshCw, Users, Video, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, Download, ExternalLink, RefreshCw, Users, Video, Search, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -94,6 +94,20 @@ export function WebinarsPage() {
     toast.success('Вебинар удалён');
     setDeleteOpen(false);
     triggerRefresh();
+  };
+
+  const handleArchive = async (id: string) => {
+    const res = await fetch('/api/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'webinar', id }),
+    });
+    if (res.ok) {
+      toast.success('Вебинар перемещён в архив');
+      triggerRefresh();
+    } else {
+      toast.error('Не удалось архивировать');
+    }
   };
 
   const handleGenerateTasks = async (webinarId: string) => {
@@ -210,6 +224,9 @@ export function WebinarsPage() {
                       </Button>
                       <Button variant="outline" size="icon" className="h-9 w-9 md:h-8 md:w-8" onClick={() => openEdit(w)}>
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="icon" className="h-9 w-9 md:h-8 md:w-8" title="В архив" onClick={() => handleArchive(w.id)}>
+                        <Archive className="h-4 w-4 text-muted-foreground" />
                       </Button>
                       <Button variant="outline" size="icon" className="h-9 w-9 md:h-8 md:w-8 ml-1" onClick={() => openDelete(w.id)}>
                         <Trash2 className="h-4 w-4 text-red-500" />

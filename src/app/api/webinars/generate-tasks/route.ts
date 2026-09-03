@@ -21,17 +21,18 @@ export async function POST(request: Request) {
 
   const periods = settingsMap.taskPeriods
     ? JSON.parse(settingsMap.taskPeriods)
-    : { unisender: 3, mtsLink: 1, reminder: 1, eventDay: 0 };
+    : { unisender: 3, mtsLink: 1, reminder: 1, eventDay: 0, sms: 0 };
 
   const typeNames = settingsMap.taskTypeNames
     ? JSON.parse(settingsMap.taskTypeNames)
-    : { unisender: 'Юнисендер', mtsLink: 'МТС Link', reminder: 'Напоминание', eventDay: 'День мероприятия' };
+    : { unisender: 'Юнисендер', mtsLink: 'МТС Link', reminder: 'Напоминание', eventDay: 'День мероприятия', sms: 'SMS' };
 
   const taskDefinitions = [
     { key: 'unisender', type: 'unisender' },
     { key: 'mtsLink', type: 'mtsLink' },
     { key: 'reminder', type: 'reminder' },
     { key: 'eventDay', type: 'eventDay' },
+    { key: 'sms', type: 'sms' },
   ];
 
   // Защита от повторной генерации: не создаём задачу того типа,
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
 
     const task = await db.task.create({
       data: {
-        title: `${typeNames[def.type] || def.type}: ${webinar.title}`,
+        title: `${typeNames[def.type] || (def.type === 'sms' ? 'SMS' : def.type)}: ${webinar.title}`,
         webinarId: webinar.id,
         responsibleId: webinar.responsibleId,
         taskType: def.type,

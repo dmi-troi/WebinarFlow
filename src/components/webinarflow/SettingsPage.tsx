@@ -13,16 +13,16 @@ import { toast } from 'sonner';
 import { Save, Send, CheckCircle2, AlertCircle, Zap, Link2, Unlink, MessageSquare, Clock } from 'lucide-react';
 
 interface AppSettings {
-  taskPeriods: { unisender: number; mtsLink: number; reminder: number; eventDay: number };
-  taskTypeNames: { unisender: string; mtsLink: string; reminder: string; eventDay: string; general: string };
+  taskPeriods: { unisender: number; mtsLink: number; reminder: number; eventDay: number; sms: number };
+  taskTypeNames: { unisender: string; mtsLink: string; reminder: string; eventDay: string; sms: string; general: string };
   taskShiftDirection: string;
   maxShiftDays: string;
   autoRecalc: string;
 }
 
 const defaults: AppSettings = {
-  taskPeriods: { unisender: 3, mtsLink: 1, reminder: 1, eventDay: 0 },
-  taskTypeNames: { unisender: 'Юнисендер', mtsLink: 'МТС Link', reminder: 'Напоминание', eventDay: 'День мероприятия', general: 'Общая' },
+  taskPeriods: { unisender: 3, mtsLink: 1, reminder: 1, eventDay: 0, sms: 0 },
+  taskTypeNames: { unisender: 'Юнисендер', mtsLink: 'МТС Link', reminder: 'Напоминание', eventDay: 'День мероприятия', sms: 'SMS', general: 'Общая' },
   taskShiftDirection: 'back',
   maxShiftDays: '7',
   autoRecalc: 'true',
@@ -335,7 +335,7 @@ export function SettingsPage() {
         <CardHeader><CardTitle className="text-base">Периоды создания задач (дней до вебинара)</CardTitle>
         <CardDescription>За сколько дней до вебинара автоматически создавать задачи</CardDescription></CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {(['unisender', 'mtsLink', 'reminder', 'eventDay'] as const).map((key) => (
+          {(['unisender', 'mtsLink', 'reminder', 'eventDay', 'sms'] as const).map((key) => (
             <div key={key}>
               <Label>{s.taskTypeNames[key] || key}</Label>
               <Input type="number" min={0} value={s.taskPeriods[key]} onChange={(e) => updatePeriod(key, e.target.value)} className="mt-1" />
