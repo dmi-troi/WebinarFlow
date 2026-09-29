@@ -1,0 +1,57 @@
+name: Apply WebinarFlow v4
+
+on:
+  push:
+    branches:
+      - apply-webinarflow-v4-2026-09-29
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Unpack prepared update
+        run: |
+          rm -rf /tmp/webinarflow-v4
+          mkdir -p /tmp/webinarflow-v4
+          unzip -q __webinarflow_v4_update.zip -d /tmp/webinarflow-v4
+          root=/tmp/webinarflow-v4/WebinarFlow-local-v3
+          rsync -a "$root/src/" src/
+          cp "$root/prisma/schema.prisma" prisma/schema.prisma
+          cp "$root/package.json" package.json
+          cp "$root/next.config.ts" next.config.ts
+          cp "$root/entrypoint.sh" entrypoint.sh
+          cp "$root/.env.example" .env.example
+          chmod +x entrypoint.sh
+
+      - name: Update Next.js security version and lockfile
+        run: npm install next@16.3.6 eslint-config-next@16.3.6
+
+      - name: Validate Prisma
+        run: npx prisma validate
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit verified update to main
+        env:
+          BASE_SHA: c82b1eaa0daf7cc6741da7d4f072ca84fbc6c14d
+        run: |
+          rm -rf __webinarflow_v4_update.zip .github/workflows/apply-webinarflow-v4.yml /tmp/webinarflow-v4
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git reset --mixed "$BASE_SHA"
+          git add src prisma/schema.prisma package.json package-lock.json next.config.ts entrypoint.sh .env.example
+          git diff --cached --quiet && { echo "No changes to commit"; exit 0; }
+          git commit -m "security: harden WebinarFlow and update Next.js"
+          git push origin HEAD:main
