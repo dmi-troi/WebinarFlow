@@ -33,7 +33,7 @@ export const POST = withAuth(async (request: Request) => {
 
     const writes: Prisma.PrismaPromise<unknown>[] = [
       db.settings.upsert({ where: { key: `archive_original_status_webinar_${id}` }, update: { value: webinar.status }, create: { key: `archive_original_status_webinar_${id}`, value: webinar.status } }),
-      db.settings.upsert({ where: { key: `archive_mts_webinar_${id}` }, update: { value: JSON.stringify({ mtsLinkWebinarId: webinar.mtsLinkWebinarId, mtsLinkUrl: webinar.mtsLinkUrl }) }, create: { key: `archive_mts_webinar_${id}`, value: JSON.stringify({ mtsLinkWebinarId: webinar.mtsLinkWebinarId, mtsLinkUrl: webinar.mtsLinkUrl }) } }),
+      db.settings.upsert({ where: { key: `archive_mts_webinar_${id}` }, update: { value: JSON.stringify({ mtsLinkWebinarId: webinar.mtsLinkWebinarId, mtsLinkEventId: webinar.mtsLinkEventId, mtsLinkEventSessionId: webinar.mtsLinkEventSessionId, mtsLinkUrl: webinar.mtsLinkUrl, mtsLinkLastSyncAt: webinar.mtsLinkLastSyncAt }) }, create: { key: `archive_mts_webinar_${id}`, value: JSON.stringify({ mtsLinkWebinarId: webinar.mtsLinkWebinarId, mtsLinkUrl: webinar.mtsLinkUrl }) } }),
       db.webinar.update({ where: { id }, data: { status: 'archived' } }),
     ];
     await db.$transaction(writes);
@@ -59,11 +59,11 @@ export const PUT = withAuth(async (request: Request) => {
     if (current?.status === 'archived') {
       const statusRow = await db.settings.findUnique({ where: { key: `archive_original_status_webinar_${id}` } });
       const mtsRow = await db.settings.findUnique({ where: { key: `archive_mts_webinar_${id}` } });
-      let mts: { mtsLinkWebinarId?: string | null; mtsLinkUrl?: string | null } = {};
+      let mts: { mtsLinkWebinarId?: string | null; mtsLinkEventId?: string | null; mtsLinkEventSessionId?: string | null; mtsLinkUrl?: string | null; mtsLinkLastSyncAt?: string | null } = {};
       try { mts = mtsRow?.value ? JSON.parse(mtsRow.value) : {}; } catch {}
       const restoredStatus = statusRow?.value || 'planned';
       await db.$transaction([
-        db.webinar.update({ where: { id }, data: { status: restoredStatus, mtsLinkWebinarId: mts.mtsLinkWebinarId ?? undefined, mtsLinkUrl: mts.mtsLinkUrl ?? undefined } }),
+        db.webinar.update({ where: { id }, data: { status: restoredStatus, mtsLinkWebinarId: mts.mtsLinkWebinarId ?? undefined, mtsLinkEventId: mts.mtsLinkEventId ?? undefined, mtsLinkEventSessionId: mts.mtsLinkEventSessionId ?? undefined, mtsLinkUrl: mts.mtsLinkUrl ?? undefined, mtsLinkLastSyncAt: mts.mtsLinkLastSyncAt ? new Date(mts.mtsLinkLastSyncAt) : undefined } }),
         db.settings.deleteMany({ where: { key: { in: [`archive_original_status_webinar_${id}`, `archive_mts_webinar_${id}`] } } }),
       ]);
       return NextResponse.json({ success: true, restored: 'live' });
@@ -74,7 +74,7 @@ export const PUT = withAuth(async (request: Request) => {
     const collision = await db.webinar.findUnique({ where: { id: archived.originalId }, select: { id: true } });
     if (collision) return NextResponse.json({ error: 'Нельзя восстановить: исходный ID уже занят другим вебинаром' }, { status: 409 });
     const archivedTasks = await db.archiveTask.findMany({ where: { webinarId: archived.originalId } });
-    const writes: Prisma.PrismaPromise<unknown>[] = [db.webinar.create({ data: { id: archived.originalId, title: archived.title, description: archived.description, date: archived.date, responsibleId: archived.responsibleId, email: archived.email, status: archived.status, mtsLinkWebinarId: archived.mtsLinkWebinarId, mtsLinkUrl: archived.mtsLinkUrl } })];
+    const writes: Prisma.PrismaPromise<unknown>[] = [db.webinar.create({ data: { id: archived.originalId, title: archived.title, description: archived.description, date: archived.date, responsibleId: archived.responsibleId, email: archived.email, status: archived.status, mtsLinkWebinarId: archived.mtsLinkWebinarId, mtsLinkEventId: archived.mtsLinkEventId, mtsLinkEventSessionId: archived.mtsLinkEventSessionId, mtsLinkUrl: archived.mtsLinkUrl, mtsLinkLastSyncAt: archived.mtsLinkLastSyncAt } })];
     for (const task of archivedTasks) writes.push(db.task.create({ data: { id: task.originalId, title: task.title, webinarId: archived.originalId, responsibleId: task.responsibleId, taskType: task.taskType, dueDate: task.dueDate, status: task.status } }));
     writes.push(db.archiveTask.deleteMany({ where: { webinarId: archived.originalId } }), db.archiveWebinar.delete({ where: { id } }));
     await db.$transaction(writes);
