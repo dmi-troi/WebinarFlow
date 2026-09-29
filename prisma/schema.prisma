@@ -68,9 +68,12 @@ model ArchiveWebinar {
   responsibleId     String?
   email             String?
   status            String
-  mtsLinkWebinarId  String?
-  mtsLinkUrl        String?
-  archivedAt        DateTime @default(now())
+  mtsLinkWebinarId      String?
+  mtsLinkEventId        String?
+  mtsLinkEventSessionId String?
+  mtsLinkUrl            String?
+  mtsLinkLastSyncAt     DateTime?
+  archivedAt            DateTime @default(now())
 }
 
 model ArchiveTask {
