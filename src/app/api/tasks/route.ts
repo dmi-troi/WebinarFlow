@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 export const GET = withAuth(async () => {
   return NextResponse.json(await db.task.findMany({
-    where: { status: { not: 'archived' }, OR: [{ webinar: null }, { webinar: { status: { not: 'archived' } } }] },
+    where: { status: { not: 'archived' } },
     include: { webinar: true, responsible: true },
     orderBy: { dueDate: 'asc' },
   }));
@@ -34,7 +34,23 @@ export const PUT = withAuth(async (request: Request) => {
     if (webinar.status === 'archived') return NextResponse.json({ error: 'Нельзя привязать задачу к архивному вебинару' }, { status: 409 });
   }
   if (data.dueDate && Number.isNaN(new Date(data.dueDate).getTime())) return NextResponse.json({ error: 'Некорректная дата' }, { status: 400 });
-  const task = await db.task.update({ where: { id: data.id }, data: { title: data.title !== undefined ? String(data.title).trim() : undefined, webinarId: data.webinarId !== undefined ? data.webinarId : undefined, responsibleId: data.responsibleId !== undefined ? data.responsibleId : undefined, taskType: data.taskType !== undefined ? data.taskType : undefined, dueDate: data.dueDate ? new Date(data.dueDate) : undefined, status: data.status !== undefined ? data.status : undefined }, include: { webinar: true, responsible: true } });
+  const nextStatus = data.status !== undefined ? String(data.status) : current.status;
+  const completionData = nextStatus === 'done'
+    ? (current.status === 'done' ? undefined : new Date())
+    : null;
+  const task = await db.task.update({
+    where: { id: data.id },
+    data: {
+      title: data.title !== undefined ? String(data.title).trim() : undefined,
+      webinarId: data.webinarId !== undefined ? data.webinarId : undefined,
+      responsibleId: data.responsibleId !== undefined ? data.responsibleId : undefined,
+      taskType: data.taskType !== undefined ? data.taskType : undefined,
+      dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+      status: data.status !== undefined ? data.status : undefined,
+      completedAt: completionData,
+    },
+    include: { webinar: true, responsible: true },
+  });
   return NextResponse.json(task);
 });
 
