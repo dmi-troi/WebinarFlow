@@ -15,8 +15,17 @@ export const GET = withAuth(async () => {
 export const POST = withAuth(async (request: Request) => {
   const data = await request.json().catch(() => ({}));
   if (!data.title || !data.date || Number.isNaN(new Date(data.date).getTime())) return NextResponse.json({ error: 'Название и корректная дата обязательны' }, { status: 400 });
+  const nextStatus = data.status || 'planned';
   const webinar = await db.webinar.create({
-    data: { title: String(data.title).trim(), description: data.description || null, date: new Date(data.date), responsibleId: data.responsibleId || null, email: data.email || null, status: data.status || 'planned' },
+    data: {
+      title: String(data.title).trim(),
+      description: data.description || null,
+      date: new Date(data.date),
+      responsibleId: data.responsibleId || null,
+      email: data.email || null,
+      status: nextStatus,
+      completedAt: nextStatus === 'completed' ? new Date() : null,
+    },
     include: { responsible: true, tasks: true },
   });
   return NextResponse.json(webinar, { status: 201 });
@@ -37,6 +46,10 @@ export const PUT = withAuth(async (request: Request) => {
   const direction = sm.taskShiftDirection === 'forward' ? 'forward' : 'back';
   const maxShiftDays = Math.max(1, parseInt(sm.maxShiftDays || '7', 10) || 7);
   const dateChanged = current.date.getTime() !== newDate.getTime();
+  const nextStatus = data.status !== undefined ? String(data.status) : current.status;
+  const completionData = nextStatus === 'completed'
+    ? (current.status === 'completed' ? undefined : new Date())
+    : null;
 
   const writes: Prisma.PrismaPromise<unknown>[] = [db.webinar.update({
     where: { id: data.id },
@@ -47,6 +60,7 @@ export const PUT = withAuth(async (request: Request) => {
       responsibleId: data.responsibleId !== undefined ? data.responsibleId : undefined,
       email: data.email !== undefined ? data.email : undefined,
       status: data.status !== undefined ? data.status : undefined,
+      completedAt: completionData,
       mtsLinkWebinarId: data.mtsLinkWebinarId !== undefined ? (data.mtsLinkWebinarId || null) : undefined,
       mtsLinkEventId: data.mtsLinkEventId !== undefined ? (data.mtsLinkEventId || null) : undefined,
       mtsLinkEventSessionId: data.mtsLinkEventSessionId !== undefined ? (data.mtsLinkEventSessionId || null) : undefined,
