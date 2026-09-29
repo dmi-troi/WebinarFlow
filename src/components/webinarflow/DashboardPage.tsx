@@ -33,7 +33,10 @@ type DashboardWebinar = {
   status: string;
   responsible?: { name: string } | null;
   tasks?: TaskModel[];
+  mtsLinkWebinarId?: string | null;
+  mtsLinkEventSessionId?: string | null;
   mtsLinkUrl?: string | null;
+  mtsLinkLastSyncAt?: string | null;
 };
 
 interface MtsStats {
@@ -43,6 +46,8 @@ interface MtsStats {
   totalParticipants: number;
   avgParticipants: number;
   recordingsCount: number;
+  syncedAt?: string;
+  readOnly?: boolean;
 }
 
 const statusLabel: Record<string, string> = {
@@ -316,7 +321,12 @@ export function DashboardPage() {
                           <div className="text-xs text-slate-500">{formatInTimeZone(webinar.date, MSK, 'HH:mm')}</div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm text-slate-900 truncate">{webinar.title}</div>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="font-medium text-sm text-slate-900 truncate">{webinar.title}</div>
+                            {webinar.mtsLinkEventSessionId || webinar.mtsLinkWebinarId ? (
+                              <Badge variant="outline" className="shrink-0 text-[10px] border-rose-200 text-rose-700 bg-rose-50/50">MTS связан</Badge>
+                            ) : null}
+                          </div>
                           <div className="text-xs text-slate-500 mt-1">{webinar.responsible?.name || 'Ответственный не назначен'} · {statusLabel[webinar.status] || webinar.status}</div>
                         </div>
                         <div className="w-full md:w-[150px]">
@@ -423,7 +433,11 @@ export function DashboardPage() {
                     <div className="rounded-xl bg-slate-50 p-3"><Film className="h-4 w-4 text-pink-500" /><div className="mt-2 text-xl font-bold">{mtsStats.recordingsCount}</div><div className="text-[11px] text-slate-500">Записей</div></div>
                     <div className="rounded-xl bg-slate-50 p-3"><CheckCircle2 className="h-4 w-4 text-emerald-500" /><div className="mt-2 text-xl font-bold">{mtsStats.completedWebinars}</div><div className="text-[11px] text-slate-500">Проведено</div></div>
                   </div>
-                  <div className="mt-4 text-xs text-slate-500 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Синхронизация доступна <ExternalLink className="h-3 w-3 ml-auto" /></div>
+                  <div className="mt-4 text-xs text-slate-500 flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    Read-only синхронизация активна
+                    {mtsStats.syncedAt && <span className="ml-auto">обновлено {formatDateTime(mtsStats.syncedAt)}</span>}
+                  </div>
                 </>
               ) : (
                 <div className="py-6 flex justify-center"><RefreshCw className="h-5 w-5 animate-spin text-slate-400" /></div>
