@@ -47,6 +47,11 @@ export const PUT = withAuth(async (request: Request) => {
       responsibleId: data.responsibleId !== undefined ? data.responsibleId : undefined,
       email: data.email !== undefined ? data.email : undefined,
       status: data.status !== undefined ? data.status : undefined,
+      mtsLinkWebinarId: data.mtsLinkWebinarId !== undefined ? (data.mtsLinkWebinarId || null) : undefined,
+      mtsLinkEventId: data.mtsLinkEventId !== undefined ? (data.mtsLinkEventId || null) : undefined,
+      mtsLinkEventSessionId: data.mtsLinkEventSessionId !== undefined ? (data.mtsLinkEventSessionId || null) : undefined,
+      mtsLinkUrl: data.mtsLinkUrl !== undefined ? (data.mtsLinkUrl || null) : undefined,
+      mtsLinkLastSyncAt: data.mtsLinkLastSyncAt !== undefined ? (data.mtsLinkLastSyncAt ? new Date(data.mtsLinkLastSyncAt) : null) : undefined,
     },
     include: { responsible: true, tasks: true },
   })];
