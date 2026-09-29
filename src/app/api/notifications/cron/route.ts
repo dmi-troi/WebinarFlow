@@ -97,12 +97,66 @@ async function autoArchiveCompleted() {
     return { tasks: 0, webinars: 0 };
   }
 
+  const taskRows = await db.task.findMany({
+    where: { id: { in: tasks.map((task) => task.id) } },
+    select: { id: true, status: true, completedAt: true },
+  });
+  const webinarRows = await db.webinar.findMany({
+    where: { id: { in: webinars.map((webinar) => webinar.id) } },
+    select: {
+      id: true,
+      status: true,
+      completedAt: true,
+      mtsLinkWebinarId: true,
+      mtsLinkEventId: true,
+      mtsLinkEventSessionId: true,
+      mtsLinkUrl: true,
+      mtsLinkLastSyncAt: true,
+    },
+  });
+
   await db.$transaction([
-    ...tasks.map((task) => db.task.update({
+    ...taskRows.map((task) => db.settings.upsert({
+      where: { key: `archive_original_status_task_${task.id}` },
+      update: { value: JSON.stringify({ status: task.status, completedAt: task.completedAt }) },
+      create: { key: `archive_original_status_task_${task.id}`, value: JSON.stringify({ status: task.status, completedAt: task.completedAt }) },
+    })),
+    ...webinarRows.flatMap((webinar) => [
+      db.settings.upsert({
+        where: { key: `archive_original_status_webinar_${webinar.id}` },
+        update: { value: webinar.status },
+        create: { key: `archive_original_status_webinar_${webinar.id}`, value: webinar.status },
+      }),
+      db.settings.upsert({
+        where: { key: `archive_mts_webinar_${webinar.id}` },
+        update: {
+          value: JSON.stringify({
+            completedAt: webinar.completedAt,
+            mtsLinkWebinarId: webinar.mtsLinkWebinarId,
+            mtsLinkEventId: webinar.mtsLinkEventId,
+            mtsLinkEventSessionId: webinar.mtsLinkEventSessionId,
+            mtsLinkUrl: webinar.mtsLinkUrl,
+            mtsLinkLastSyncAt: webinar.mtsLinkLastSyncAt,
+          }),
+        },
+        create: {
+          key: `archive_mts_webinar_${webinar.id}`,
+          value: JSON.stringify({
+            completedAt: webinar.completedAt,
+            mtsLinkWebinarId: webinar.mtsLinkWebinarId,
+            mtsLinkEventId: webinar.mtsLinkEventId,
+            mtsLinkEventSessionId: webinar.mtsLinkEventSessionId,
+            mtsLinkUrl: webinar.mtsLinkUrl,
+            mtsLinkLastSyncAt: webinar.mtsLinkLastSyncAt,
+          }),
+        },
+      }),
+    ]),
+    ...taskRows.map((task) => db.task.update({
       where: { id: task.id },
       data: { status: 'archived' },
     })),
-    ...webinars.map((webinar) => db.webinar.update({
+    ...webinarRows.map((webinar) => db.webinar.update({
       where: { id: webinar.id },
       data: { status: 'archived' },
     })),
