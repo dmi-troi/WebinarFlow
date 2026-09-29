@@ -33,7 +33,30 @@ export const POST = withAuth(async (request: Request) => {
 
     const writes: Prisma.PrismaPromise<unknown>[] = [
       db.settings.upsert({ where: { key: `archive_original_status_webinar_${id}` }, update: { value: webinar.status }, create: { key: `archive_original_status_webinar_${id}`, value: webinar.status } }),
-      db.settings.upsert({ where: { key: `archive_mts_webinar_${id}` }, update: { value: JSON.stringify({ completedAt: webinar.completedAt, mtsLinkWebinarId: webinar.mtsLinkWebinarId, mtsLinkEventId: webinar.mtsLinkEventId, mtsLinkEventSessionId: webinar.mtsLinkEventSessionId, mtsLinkUrl: webinar.mtsLinkUrl, mtsLinkLastSyncAt: webinar.mtsLinkLastSyncAt }) }, create: { key: `archive_mts_webinar_${id}`, value: JSON.stringify({ mtsLinkWebinarId: webinar.mtsLinkWebinarId, mtsLinkUrl: webinar.mtsLinkUrl }) } }),
+      db.settings.upsert({
+        where: { key: `archive_mts_webinar_${id}` },
+        update: {
+          value: JSON.stringify({
+            completedAt: webinar.completedAt,
+            mtsLinkWebinarId: webinar.mtsLinkWebinarId,
+            mtsLinkEventId: webinar.mtsLinkEventId,
+            mtsLinkEventSessionId: webinar.mtsLinkEventSessionId,
+            mtsLinkUrl: webinar.mtsLinkUrl,
+            mtsLinkLastSyncAt: webinar.mtsLinkLastSyncAt,
+          }),
+        },
+        create: {
+          key: `archive_mts_webinar_${id}`,
+          value: JSON.stringify({
+            completedAt: webinar.completedAt,
+            mtsLinkWebinarId: webinar.mtsLinkWebinarId,
+            mtsLinkEventId: webinar.mtsLinkEventId,
+            mtsLinkEventSessionId: webinar.mtsLinkEventSessionId,
+            mtsLinkUrl: webinar.mtsLinkUrl,
+            mtsLinkLastSyncAt: webinar.mtsLinkLastSyncAt,
+          }),
+        },
+      }),
       db.webinar.update({ where: { id }, data: { status: 'archived' } }),
     ];
     await db.$transaction(writes);
