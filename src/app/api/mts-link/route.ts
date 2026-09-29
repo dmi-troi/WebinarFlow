@@ -239,6 +239,49 @@ export const GET = withAuth(async (request: Request) => {
       return NextResponse.json({ candidates, syncedAt: new Date().toISOString() });
     }
 
+    if (action === 'stats') {
+      const from = new Date();
+      from.setFullYear(from.getFullYear() - 1);
+      const statsResponse = await mtsFetch(
+        `/stats/events?from=${encodeURIComponent(`${ymd(from)}+00:00:00`)}`,
+        apiKey,
+        baseUrl,
+      );
+      const upcomingResponse = await fetchSchedule(apiKey, baseUrl);
+      if (!statsResponse.ok && !upcomingResponse.ok) {
+        return NextResponse.json({ error: 'Не удалось получить статистику МТС Линк' }, { status: 502 });
+      }
+
+      const past = extractArray(statsResponse.data);
+      const allUpcoming = upcomingResponse.ok ? flattenEvents(upcomingResponse.events || []) : [];
+      const now = Date.now();
+      const upcoming = allUpcoming.filter((item) => {
+        const time = new Date(item.startDate || '').getTime();
+        return Number.isFinite(time) && time >= now && !item.isArchive;
+      });
+
+      const totalParticipants = past.reduce(
+        (sum, event) => sum + Number(event.registeredVisitedCount ?? event.invitedVisitedCount ?? 0),
+        0,
+      );
+      const recordingsCount = past.reduce(
+        (sum, event) => sum + Number(event.recordingsCount ?? event.recordingCount ?? (event.recordUrl ? 1 : 0)),
+        0,
+      );
+      const completedWebinars = past.length;
+
+      return NextResponse.json({
+        totalWebinars: completedWebinars + upcoming.length,
+        completedWebinars,
+        upcomingWebinars: upcoming.length,
+        totalParticipants,
+        avgParticipants: completedWebinars ? Math.round(totalParticipants / completedWebinars) : 0,
+        recordingsCount,
+        syncedAt: new Date().toISOString(),
+        readOnly: true,
+      });
+    }
+
     if (action === 'detail') {
       const sessionId = params.get('sessionId') || params.get('id');
       if (!sessionId) return NextResponse.json({ error: 'Укажите sessionId' }, { status: 400 });
