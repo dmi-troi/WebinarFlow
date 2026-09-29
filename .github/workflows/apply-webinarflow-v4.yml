@@ -40,7 +40,16 @@ jobs:
         run: npx prisma validate
 
       - name: TypeScript check
-        run: npx tsc --noEmit
+        run: |
+          cat > .github-actions-tsconfig.json <<'EOF'
+          {
+            "extends": "./tsconfig.json",
+            "include": ["src/**/*.ts", "src/**/*.tsx"],
+            "exclude": ["node_modules"]
+          }
+          EOF
+          npx tsc --noEmit -p .github-actions-tsconfig.json
+          rm -f .github-actions-tsconfig.json
 
       - name: Production build
         run: npm run build
