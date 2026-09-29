@@ -11,6 +11,8 @@ permissions:
 jobs:
   apply-and-promote:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: file:./.github-actions-validation.db
     steps:
       - name: Checkout
         uses: actions/checkout@v4
