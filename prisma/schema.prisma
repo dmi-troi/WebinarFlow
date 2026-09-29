@@ -27,8 +27,11 @@ model Webinar {
   responsibleId     String?
   email             String?
   status            String   @default("planned")
-  mtsLinkWebinarId  String?
-  mtsLinkUrl        String?
+  mtsLinkWebinarId     String?
+  mtsLinkEventId       String?
+  mtsLinkEventSessionId String?
+  mtsLinkUrl           String?
+  mtsLinkLastSyncAt    DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   responsible       Responsible? @relation(fields: [responsibleId], references: [id])
