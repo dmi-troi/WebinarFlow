@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAppStore } from '@/lib/store';
 import { mskDateInputValue, mskInputToDate, mskTimeInputValue } from '@/lib/msk-time';
+import { MtsLinkPanel } from '@/components/webinarflow/MtsLinkPanel';
 
 const MSK = 'Europe/Moscow';
 
@@ -401,6 +402,7 @@ export function WebinarsPage() {
                 <div className="rounded-xl border p-4"><div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-wide"><Clock3 className="h-3.5 w-3.5" />Дата проведения</div><div className="font-medium mt-2">{formatWebinarDate(selected.date)} МСК</div></div>
               </div>
               {selected.mtsLinkUrl && <div className="rounded-xl border border-rose-100 bg-rose-50/60 p-4"><div className="flex items-center gap-2 font-semibold text-slate-900"><span className="text-[#E30611]">MTS</span> Линк</div><p className="text-xs text-slate-500 mt-1">Сохранённая ссылка из данных WebinarFlow. Данные в МТС Линк не изменяются.</p><a href={selected.mtsLinkUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#1E5BEB] hover:underline inline-flex items-center gap-1 mt-2">Открыть ссылку <ExternalLink className="h-3 w-3" /></a></div>}
+              <MtsLinkPanel webinar={selected} onLinked={() => { setDetailOpen(false); loadData(); triggerRefresh(); }} />
             </div>
             <DialogFooter className="flex flex-wrap gap-2 sm:justify-between"><div className="flex gap-2"><Button variant="outline" onClick={() => { setDetailOpen(false); openEdit(selected); }}><Pencil className="h-4 w-4 mr-2" />Изменить</Button><Button variant="outline" onClick={() => handleGenerateTasks(selected.id)}><Zap className="h-4 w-4 mr-2 text-amber-500" />План задач</Button></div><div className="flex gap-2"><Button variant="outline" onClick={() => handleArchive(selected.id)}><Archive className="h-4 w-4 mr-2" />В архив</Button><Button variant="destructive" onClick={() => { setDeletingId(selected.id); setDeleteOpen(true); }}><Trash2 className="h-4 w-4 mr-2" />Удалить</Button></div></DialogFooter>
           </>; })()}
