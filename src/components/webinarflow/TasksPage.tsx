@@ -1,48 +1,74 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Responsible, Task, Webinar } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
-import type { Task, Responsible, Webinar } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from '@/components/ui/select';
-import { Plus, Pencil, Trash2, CheckSquare, Filter, Archive } from 'lucide-react';
+  Archive, CalendarClock, CheckCircle2, CircleAlert, ClipboardList, GripVertical,
+  List, Pencil, Plus, Search, Trash2, UserRound, Video, Columns3,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import { mskInputToDate, mskDateInputValue, mskTimeInputValue, formatMsk } from '@/lib/msk-time';
+import { formatInTimeZone } from 'date-fns-tz';
+import { mskDateInputValue, mskInputToDate, mskTimeInputValue } from '@/lib/msk-time';
 
-const taskTypeLabels: Record<string, { label: string; color: string }> = {
-  unisender: { label: 'Юнисендер', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  mtsLink: { label: 'МТС Link', color: 'bg-violet-100 text-violet-700 border-violet-200' },
-  reminder: { label: 'Напоминание', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  eventDay: { label: 'День мероприятия', color: 'bg-rose-100 text-rose-700 border-rose-200' },
-  sms: { label: 'SMS', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  general: { label: 'Общая', color: 'bg-gray-100 text-gray-700 border-gray-200' },
-};
-
-const statusLabels: Record<string, { label: string; className: string }> = {
-  pending: { label: 'В ожидании', className: 'bg-gray-100 text-gray-600' },
-  in_progress: { label: 'В работе', className: 'bg-amber-100 text-amber-700' },
-  done: { label: 'Готово', className: 'bg-[#1E5BEB]/10 text-[#1E5BEB]' },
-};
+const MSK = 'Europe/Moscow';
 
 type FilterStatus = 'all' | 'pending' | 'in_progress' | 'done' | 'overdue';
-type TaskForm = { title: string; webinarId: string; responsibleId: string; taskType: Task['taskType']; dueDate: string; dueTime: string; status: Task['status'] };
+type ViewMode = 'list' | 'kanban';
+type TaskForm = {
+  title: string;
+  webinarId: string;
+  responsibleId: string;
+  taskType: Task['taskType'];
+  dueDate: string;
+  dueTime: string;
+  status: Task['status'];
+};
 
-const emptyTask: TaskForm = { title: '', webinarId: '', responsibleId: '', taskType: 'general', dueDate: '', dueTime: '', status: 'pending' };
+const emptyTask: TaskForm = { title: '', webinarId: '', responsibleId: '', taskType: 'general', dueDate: '', dueTime: '09:00', status: 'pending' };
+
+const typeMeta: Record<string, { label: string; className: string }> = {
+  unisender: { label: 'Юнисендер', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+  mtsLink: { label: 'МТС Link', className: 'bg-violet-50 text-violet-700 border-violet-200' },
+  reminder: { label: 'Напоминание', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  eventDay: { label: 'День мероприятия', className: 'bg-rose-50 text-rose-700 border-rose-200' },
+  sms: { label: 'SMS', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  general: { label: 'Общая', className: 'bg-slate-100 text-slate-600 border-slate-200' },
+};
+
+const statusMeta: Record<string, { label: string; className: string }> = {
+  pending: { label: 'В ожидании', className: 'bg-slate-100 text-slate-600 border-slate-200' },
+  in_progress: { label: 'В работе', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  done: { label: 'Готово', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  archived: { label: 'В архиве', className: 'bg-slate-100 text-slate-500 border-slate-200' },
+};
+
+const kanbanColumns: Array<{ status: Task['status']; title: string }> = [
+  { status: 'pending', title: 'В ожидании' },
+  { status: 'in_progress', title: 'В работе' },
+  { status: 'done', title: 'Готово' },
+];
+
+function isOverdue(task: Task) {
+  return task.status !== 'done' && task.status !== 'archived' && new Date(task.dueDate).getTime() < Date.now();
+}
+
+function formatTaskDate(value: string) {
+  return formatInTimeZone(value, MSK, 'd MMM yyyy, HH:mm');
+}
 
 export function TasksPage() {
   const refreshKey = useAppStore((s) => s.refreshKey);
@@ -50,270 +76,198 @@ export function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [responsibles, setResponsibles] = useState<Responsible[]>([]);
   const [webinars, setWebinars] = useState<Webinar[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<ViewMode>('list');
+  const [filter, setFilter] = useState<FilterStatus>('all');
+  const [responsibleFilter, setResponsibleFilter] = useState('all');
+  const [query, setQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [form, setForm] = useState<TaskForm>(emptyTask);
-  const [filter, setFilter] = useState<FilterStatus>('all');
-  const [responsibleFilter, setResponsibleFilter] = useState('all');
-  const [webinarSearch, setWebinarSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  const loadData = useCallback(() => {
-    Promise.all([
-      fetch('/api/tasks').then((r) => r.json()),
-      fetch('/api/responsibles').then((r) => r.json()),
-      fetch('/api/webinars').then((r) => r.json()),
-    ]).then(([t, r, w]) => { setTasks(t); setResponsibles(r); setWebinars(w); setLoading(false); });
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [taskData, responsibleData, webinarData] = await Promise.all([
+        fetch('/api/tasks', { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/responsibles', { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/webinars', { cache: 'no-store' }).then((r) => r.json()),
+      ]);
+      setTasks(Array.isArray(taskData) ? taskData : []);
+      setResponsibles(Array.isArray(responsibleData) ? responsibleData : []);
+      setWebinars(Array.isArray(webinarData) ? webinarData : []);
+    } catch {
+      toast.error('Не удалось загрузить задачи');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData, refreshKey]);
 
-  const filtered = tasks.filter((t) => {
-    const isOverdue = t.status !== 'done' && new Date(t.dueDate) < new Date();
-    if (filter === 'overdue' && !isOverdue) return false;
-    if (filter !== 'all' && filter !== 'overdue' && t.status !== filter) return false;
-    if (responsibleFilter !== 'all' && t.responsibleId !== responsibleFilter) return false;
-    if (webinarSearch.trim()) {
-      const q = webinarSearch.trim().toLowerCase();
-      const matchesWebinar = t.webinar?.title?.toLowerCase().includes(q);
-      const matchesTitle = t.title.toLowerCase().includes(q);
-      if (!matchesWebinar && !matchesTitle) return false;
-    }
-    if (dateFrom && new Date(t.dueDate) < mskInputToDate(dateFrom, '00:00')) return false;
-    if (dateTo && new Date(t.dueDate) > mskInputToDate(dateTo, '23:59')) return false;
+  const filtered = useMemo(() => tasks.filter((task) => {
+    const overdue = isOverdue(task);
+    if (filter === 'overdue' && !overdue) return false;
+    if (filter !== 'all' && filter !== 'overdue' && task.status !== filter) return false;
+    if (responsibleFilter !== 'all' && task.responsibleId !== responsibleFilter) return false;
+    const q = query.trim().toLowerCase();
+    if (q && !task.title.toLowerCase().includes(q) && !(task.webinar?.title || '').toLowerCase().includes(q)) return false;
+    if (dateFrom && new Date(task.dueDate).getTime() < mskInputToDate(dateFrom, '00:00').getTime()) return false;
+    if (dateTo && new Date(task.dueDate).getTime() > mskInputToDate(dateTo, '23:59').getTime()) return false;
     return true;
-  });
+  }), [tasks, filter, responsibleFilter, query, dateFrom, dateTo]);
+
+  const counts = useMemo(() => ({
+    overdue: tasks.filter(isOverdue).length,
+    today: tasks.filter((task) => formatInTimeZone(task.dueDate, MSK, 'yyyy-MM-dd') === formatInTimeZone(new Date(), MSK, 'yyyy-MM-dd')).length,
+    done: tasks.filter((task) => task.status === 'done').length,
+  }), [tasks]);
 
   const openCreate = () => { setEditing(null); setForm(emptyTask); setDialogOpen(true); };
-  const openEdit = (t: Task) => {
-    setEditing(t);
+  const openEdit = (task: Task) => {
+    setEditing(task);
     setForm({
-      title: t.title, webinarId: t.webinarId || '', responsibleId: t.responsibleId || '',
-      taskType: t.taskType, dueDate: mskDateInputValue(t.dueDate), dueTime: mskTimeInputValue(t.dueDate),
-      status: t.status,
+      title: task.title,
+      webinarId: task.webinarId || '',
+      responsibleId: task.responsibleId || '',
+      taskType: task.taskType,
+      dueDate: mskDateInputValue(task.dueDate),
+      dueTime: mskTimeInputValue(task.dueDate),
+      status: task.status === 'archived' ? 'done' : task.status,
     });
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
-    const body = {
-      title: form.title,
-      dueDate: mskInputToDate(form.dueDate, form.dueTime || '09:00'),
+  const saveTask = async () => {
+    const payload = {
+      title: form.title.trim(),
       webinarId: form.webinarId || null,
       responsibleId: form.responsibleId || null,
       taskType: form.taskType,
+      dueDate: mskInputToDate(form.dueDate, form.dueTime || '09:00'),
       status: form.status,
     };
-    if (editing) {
-      await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: editing.id }) });
-      toast.success('Задача обновлена');
-    } else {
-      await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      toast.success('Задача создана');
-    }
-    setDialogOpen(false);
-    triggerRefresh();
-  };
-
-  const handleDelete = async () => {
-    if (!deletingId) return;
-    await fetch(`/api/tasks?id=${deletingId}`, { method: 'DELETE' });
-    toast.success('Задача удалена');
-    setDeleteOpen(false);
-    triggerRefresh();
-  };
-
-  const handleArchive = async (id: string) => {
-    const res = await fetch('/api/archive', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'task', id }),
-    });
-    if (res.ok) {
-      toast.success('Задача перемещена в архив');
+    try {
+      const response = await fetch('/api/tasks', {
+        method: editing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editing ? { ...payload, id: editing.id } : payload),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Не удалось сохранить задачу');
+      }
+      toast.success(editing ? 'Задача обновлена' : 'Задача создана');
+      setDialogOpen(false);
       triggerRefresh();
-    } else {
-      toast.error('Не удалось архивировать');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка сохранения');
     }
   };
 
-  const handleStatusChange = async (id: string, status: string) => {
-    await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
-    toast.success('Статус изменён');
-    triggerRefresh();
+  const changeStatus = async (id: string, status: Task['status']) => {
+    if (status === 'archived') return;
+    try {
+      const response = await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
+      if (!response.ok) throw new Error('Не удалось изменить статус');
+      triggerRefresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка изменения статуса');
+    }
   };
 
-  const filterTabs: { value: FilterStatus; label: string; count: number }[] = [
-    { value: 'all', label: 'Все', count: tasks.length },
-    { value: 'overdue', label: 'Просрочено', count: tasks.filter((t) => t.status !== 'done' && new Date(t.dueDate) < new Date()).length },
-    { value: 'pending', label: 'В ожидании', count: tasks.filter((t) => t.status === 'pending').length },
-    { value: 'in_progress', label: 'В работе', count: tasks.filter((t) => t.status === 'in_progress').length },
-    { value: 'done', label: 'Выполнено', count: tasks.filter((t) => t.status === 'done').length },
-  ];
+  const deleteTask = async () => {
+    if (!deletingId) return;
+    try {
+      const response = await fetch(`/api/tasks?id=${deletingId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Не удалось удалить задачу');
+      toast.success('Задача удалена');
+      setDeleteOpen(false);
+      triggerRefresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка удаления');
+    }
+  };
 
-  if (loading) return <div className="p-4 md:p-6"><div className="h-64 animate-pulse bg-muted rounded-xl" /></div>;
+  const archiveTask = async (id: string) => {
+    try {
+      const response = await fetch('/api/archive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'task', id }) });
+      if (!response.ok) throw new Error('Не удалось отправить задачу в архив');
+      toast.success('Задача в архиве');
+      triggerRefresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка архивации');
+    }
+  };
+
+  if (loading) {
+    return <div className="p-4 md:p-7 bg-slate-50/70 min-h-full"><div className="max-w-[1500px] mx-auto space-y-4"><div className="h-20 rounded-2xl bg-white border animate-pulse" />{[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-2xl bg-white border animate-pulse" />)}</div></div>;
+  }
 
   return (
-    <div className="p-4 md:p-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
-        <div className="hidden md:block">
-          <h1 className="text-2xl font-bold">Задачи</h1>
-          <p className="text-muted-foreground">Управление задачами</p>
-        </div>
-        <Button onClick={openCreate} className="bg-[#1E5BEB] hover:bg-[#1E5BEB]/80">
-          <Plus className="h-4 w-4 mr-2" />Создать
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
-        <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-        {filterTabs.map((tab) => (
-          <Button
-            key={tab.value}
-            variant={filter === tab.value ? 'default' : 'outline'}
-            size="sm"
-            className={
-              filter === tab.value
-                ? tab.value === 'overdue' ? 'bg-red-500 hover:bg-red-600' : 'bg-[#1E5BEB] hover:bg-[#1E5BEB]/80'
-                : tab.value === 'overdue' && tab.count > 0 ? 'border-red-300 text-red-600 hover:bg-red-50' : ''
-            }
-            onClick={() => setFilter(tab.value)}
-          >
-            {tab.label} <span className="ml-1.5 text-xs opacity-70">({tab.count})</span>
-          </Button>
-        ))}
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <Input
-          placeholder="Поиск по задаче или вебинару..."
-          value={webinarSearch}
-          onChange={(e) => setWebinarSearch(e.target.value)}
-          className="flex-1"
-        />
-        <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-          <SelectTrigger className="sm:w-56"><SelectValue placeholder="Все ответственные" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все ответственные</SelectItem>
-            {responsibles.map((r) => (<SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>))}
-          </SelectContent>
-        </Select>
-        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="sm:w-40" title="С даты" />
-        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="sm:w-40" title="По дату" />
-      </div>
-
-      {filtered.length === 0 ? (
-        <Card><CardContent className="p-12 text-center">
-          <CheckSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Нет задач</p>
-        </CardContent></Card>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((t) => {
-            const tt = taskTypeLabels[t.taskType] || taskTypeLabels.general;
-            const st = statusLabels[t.status] || statusLabels.pending;
-            const isOverdue = t.status !== 'done' && new Date(t.dueDate) < new Date();
-            return (
-              <Card key={t.id} className={`hover:shadow-sm transition-shadow ${isOverdue ? 'border-l-4 border-l-red-500 bg-red-50/40' : ''}`}>
-                <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <button
-                      className={`shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${t.status === 'done' ? 'bg-[#1E5BEB] border-emerald-500' : 'border-gray-300 hover:border-emerald-400'}`}
-                      onClick={() => handleStatusChange(t.id, t.status === 'done' ? 'pending' : 'done')}
-                    >
-                      {t.status === 'done' && <span className="text-white text-xs">✓</span>}
-                    </button>
-                    <div className="min-w-0">
-                      <p className={`font-medium text-sm ${t.status === 'done' ? 'line-through text-muted-foreground' : ''} truncate`}>{t.title}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <Badge variant="outline" className={`text-xs ${tt.color}`}>{tt.label}</Badge>
-                        {isOverdue && <Badge className="text-xs bg-red-500 text-white border-red-500">Просрочено</Badge>}
-                        {t.webinar && <span className="text-xs text-muted-foreground">🎬 {t.webinar.title}</span>}
-                        {t.responsible && <span className="text-xs text-muted-foreground">👤 {t.responsible.name}</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className={`text-xs mr-2 ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-                      {formatMsk(t.dueDate, 'd MMM HH:mm')}
-                    </span>
-                    <Select value={t.status} onValueChange={(v) => handleStatusChange(t.id, v)}>
-                      <SelectTrigger className="w-28 h-7 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">В ожидании</SelectItem>
-                        <SelectItem value="in_progress">В работе</SelectItem>
-                        <SelectItem value="done">Готово</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7" title="В архив" onClick={() => handleArchive(t.id)}><Archive className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7 ml-1" onClick={() => { setDeletingId(t.id); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5 text-red-400" /></Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editing ? 'Редактировать задачу' : 'Новая задача'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 min-w-0 w-full">
-            <div><Label>Название</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Название задачи" /></div>
-            <div><Label>Тип задачи</Label>
-              <Select value={form.taskType} onValueChange={(v) => setForm({ ...form, taskType: v as any })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(taskTypeLabels).map(([k, v]) => (<SelectItem key={k} value={k}>{v.label}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Дата</Label><Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></div>
-              <div><Label>Время</Label><Input type="time" value={form.dueTime} onChange={(e) => setForm({ ...form, dueTime: e.target.value })} /></div>
-            </div>
-            <div><Label>Вебинар</Label>
-              <Select value={form.webinarId || 'none'} onValueChange={(v) => setForm({ ...form, webinarId: v === 'none' ? '' : v })}>
-                <SelectTrigger><SelectValue placeholder="Не привязан" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Не привязан</SelectItem>
-                  {webinars.map((w) => (<SelectItem key={w.id} value={w.id}>{w.title}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div><Label>Ответственный</Label>
-              <Select value={form.responsibleId} onValueChange={(v) => setForm({ ...form, responsibleId: v })}>
-                <SelectTrigger><SelectValue placeholder="Выбрать" /></SelectTrigger>
-                <SelectContent>
-                  {responsibles.filter((r) => r.isActive).map((r) => (<SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
+    <div className="min-h-full bg-slate-50/70 p-4 md:p-7">
+      <div className="max-w-[1500px] mx-auto space-y-5">
+        <header className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-[0.16em] text-[#1E5BEB] font-semibold">Операционная работа</div>
+            <h1 className="mt-1 text-2xl md:text-3xl font-bold tracking-tight text-slate-950">Задачи</h1>
+            <p className="mt-1 text-sm text-slate-500">Что нужно сделать сегодня, что просрочено и кто отвечает.</p>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Отмена</Button>
-            <Button onClick={handleSave} disabled={!form.title || !form.dueDate} className="bg-[#1E5BEB] hover:bg-[#1E5BEB]/80">
-              {editing ? 'Сохранить' : 'Создать'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <Button onClick={openCreate} className="bg-[#1E5BEB] hover:bg-[#1749bb]"><Plus className="h-4 w-4 mr-2" /> Задача</Button>
+        </header>
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Удалить задачу?</AlertDialogTitle>
-          <AlertDialogDescription>Это действие нельзя отменить.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">Удалить</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Card className="rounded-2xl bg-white shadow-sm"><CardContent className="p-4"><div className="text-xs uppercase tracking-wide text-slate-400 font-semibold">Просрочено</div><div className="mt-1 text-2xl font-bold text-slate-950">{counts.overdue}</div><div className="text-xs text-slate-500 mt-1">незавершённых задач</div></CardContent></Card>
+          <Card className="rounded-2xl bg-white shadow-sm"><CardContent className="p-4"><div className="text-xs uppercase tracking-wide text-slate-400 font-semibold">На сегодня</div><div className="mt-1 text-2xl font-bold text-slate-950">{counts.today}</div><div className="text-xs text-slate-500 mt-1">задач в плане</div></CardContent></Card>
+          <Card className="rounded-2xl bg-white shadow-sm"><CardContent className="p-4"><div className="text-xs uppercase tracking-wide text-slate-400 font-semibold">Выполнено</div><div className="mt-1 text-2xl font-bold text-slate-950">{counts.done}</div><div className="text-xs text-slate-500 mt-1">задач всего</div></CardContent></Card>
+        </section>
+
+        <section className="rounded-2xl border bg-white shadow-sm p-4">
+          <div className="flex flex-col xl:flex-row gap-3">
+            <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /><Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск по задаче или вебинару" className="pl-9 bg-slate-50/60" /></div>
+            <Select value={filter} onValueChange={(value) => setFilter(value as FilterStatus)}><SelectTrigger className="w-full xl:w-44 bg-slate-50/60"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Все задачи</SelectItem><SelectItem value="overdue">Просрочено</SelectItem><SelectItem value="pending">В ожидании</SelectItem><SelectItem value="in_progress">В работе</SelectItem><SelectItem value="done">Готово</SelectItem></SelectContent></Select>
+            <Select value={responsibleFilter} onValueChange={setResponsibleFilter}><SelectTrigger className="w-full xl:w-56 bg-slate-50/60"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Все ответственные</SelectItem>{responsibles.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent></Select>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1"><Button variant={view === 'list' ? 'default' : 'ghost'} size="sm" className="h-8 px-3" onClick={() => setView('list')}><List className="h-3.5 w-3.5 mr-1.5" />Список</Button><Button variant={view === 'kanban' ? 'default' : 'ghost'} size="sm" className="h-8 px-3" onClick={() => setView('kanban')}><Columns3 className="h-3.5 w-3.5 mr-1.5" />Kanban</Button></div>
+            <div className="flex items-center gap-2 ml-0 xl:ml-auto"><Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-36 text-xs" /><span className="text-xs text-slate-400">—</span><Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-36 text-xs" /></div>
+          </div>
+        </section>
+
+        {filtered.length === 0 ? <Card className="rounded-2xl border-dashed bg-white"><CardContent className="p-12 text-center"><ClipboardList className="h-10 w-10 mx-auto text-slate-300 mb-3" /><p className="font-medium text-slate-800">Задач не найдено</p><p className="text-sm text-slate-500 mt-1">Измените фильтры или создайте новую задачу.</p></CardContent></Card> : view === 'list' ? (
+          <div className="space-y-2">
+            {filtered.map((task) => {
+              const type = typeMeta[task.taskType] || typeMeta.general;
+              const status = statusMeta[task.status] || statusMeta.pending;
+              const overdue = isOverdue(task);
+              return <Card key={task.id} className={`rounded-2xl bg-white shadow-sm ${overdue ? 'border-rose-200' : 'border-slate-200/80'}`}>
+                <CardContent className="p-4 md:p-5"><div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                  <div className="flex-1 min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-medium text-slate-900 truncate">{task.title}</h3><Badge variant="outline" className={`text-[10px] ${type.className}`}>{type.label}</Badge>{overdue && <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"><CircleAlert className="h-3 w-3 mr-1" />Просрочено</Badge>}</div><div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-500"><span className="inline-flex items-center gap-1.5"><CalendarClock className="h-3.5 w-3.5" />{formatTaskDate(task.dueDate)} МСК</span><span className="inline-flex items-center gap-1.5"><UserRound className="h-3.5 w-3.5" />{task.responsible?.name || 'Не назначен'}</span>{task.webinar && <span className="inline-flex items-center gap-1.5"><Video className="h-3.5 w-3.5" />{task.webinar.title}</span>}</div></div>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0"><Select value={task.status} onValueChange={(v) => changeStatus(task.id, v as Task['status'])}><SelectTrigger className="w-36 h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending">В ожидании</SelectItem><SelectItem value="in_progress">В работе</SelectItem><SelectItem value="done">Готово</SelectItem></SelectContent></Select><Button variant="outline" size="icon" className="h-9 w-9" title="Изменить" onClick={() => openEdit(task)}><Pencil className="h-4 w-4" /></Button><Button variant="outline" size="icon" className="h-9 w-9" title="В архив" onClick={() => archiveTask(task.id)}><Archive className="h-4 w-4" /></Button><Button variant="outline" size="icon" className="h-9 w-9" title="Удалить" onClick={() => { setDeletingId(task.id); setDeleteOpen(true); }}><Trash2 className="h-4 w-4 text-rose-500" /></Button></div>
+                </div></CardContent>
+              </Card>;
+            })}
+          </div>
+        ) : (
+          <div className="flex gap-4 overflow-x-auto pb-2 snap-x">
+            {kanbanColumns.map((column) => {
+              const columnTasks = filtered.filter((task) => task.status === column.status);
+              return <section key={column.status} className="min-w-[300px] flex-1 rounded-2xl border bg-slate-100/70 p-3 snap-start" onDragOver={(e) => e.preventDefault()} onDrop={() => { if (draggingId) { void changeStatus(draggingId, column.status); setDraggingId(null); } }}>
+                <div className="flex items-center justify-between px-1 pb-3"><div className="flex items-center gap-2"><h2 className="font-semibold text-sm text-slate-900">{column.title}</h2><span className="text-xs rounded-full bg-white px-2 py-0.5 text-slate-500">{columnTasks.length}</span></div></div>
+                <div className="space-y-2 min-h-[180px]">{columnTasks.map((task) => { const type = typeMeta[task.taskType] || typeMeta.general; return <div key={task.id} draggable onDragStart={() => setDraggingId(task.id)} onDragEnd={() => setDraggingId(null)} className={`rounded-xl border bg-white p-3 shadow-sm cursor-grab active:cursor-grabbing ${isOverdue(task) ? 'border-rose-200' : 'border-slate-200'} ${draggingId === task.id ? 'opacity-50' : ''}`}><div className="flex items-start gap-2"><GripVertical className="h-4 w-4 text-slate-300 mt-0.5 shrink-0" /><div className="min-w-0 flex-1"><p className="text-sm font-medium text-slate-900">{task.title}</p><div className="mt-2 flex flex-wrap gap-1.5"><Badge variant="outline" className={`text-[10px] ${type.className}`}>{type.label}</Badge>{isOverdue(task) && <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200">Просрочено</Badge>}</div><p className="mt-2 text-[11px] text-slate-500">{formatTaskDate(task.dueDate)}</p><p className="text-[11px] text-slate-500">{task.responsible?.name || 'Ответственный не назначен'}</p></div></div><div className="mt-3 pt-2 border-t flex gap-1.5"><Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => openEdit(task)}><Pencil className="h-3 w-3 mr-1" />Изменить</Button>{column.status !== 'done' && <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => changeStatus(task.id, 'done')}><CheckCircle2 className="h-3 w-3 mr-1" />Готово</Button>}</div></div>; })}</div>
+              </section>;
+            })}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto"><DialogHeader><DialogTitle>{editing ? 'Редактировать задачу' : 'Новая задача'}</DialogTitle><DialogDescription>Дата и время указываются по Москве (МСК).</DialogDescription></DialogHeader><div className="space-y-4"><div><Label>Название</Label><Input className="mt-1" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Что нужно сделать" /></div><div><Label>Вебинар</Label><Select value={form.webinarId || 'none'} onValueChange={(value) => setForm({ ...form, webinarId: value === 'none' ? '' : value })}><SelectTrigger className="mt-1"><SelectValue placeholder="Без привязки" /></SelectTrigger><SelectContent><SelectItem value="none">Без привязки</SelectItem>{webinars.map((w) => <SelectItem key={w.id} value={w.id}>{w.title}</SelectItem>)}</SelectContent></Select></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><Label>Ответственный</Label><Select value={form.responsibleId || 'none'} onValueChange={(value) => setForm({ ...form, responsibleId: value === 'none' ? '' : value })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Не назначен</SelectItem>{responsibles.filter((r) => r.isActive).map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent></Select></div><div><Label>Тип</Label><Select value={form.taskType} onValueChange={(value) => setForm({ ...form, taskType: value as Task['taskType'] })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(typeMeta).map(([key, meta]) => <SelectItem key={key} value={key}>{meta.label}</SelectItem>)}</SelectContent></Select></div></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><Label>Дата</Label><Input className="mt-1" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></div><div><Label>Время</Label><Input className="mt-1" type="time" value={form.dueTime} onChange={(e) => setForm({ ...form, dueTime: e.target.value })} /></div></div><div><Label>Статус</Label><Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value as Task['status'] })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending">В ожидании</SelectItem><SelectItem value="in_progress">В работе</SelectItem><SelectItem value="done">Готово</SelectItem></SelectContent></Select></div></div><DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Отмена</Button><Button onClick={saveTask} disabled={!form.title.trim() || !form.dueDate} className="bg-[#1E5BEB] hover:bg-[#1749bb]"><CheckCircle2 className="h-4 w-4 mr-2" />Сохранить</Button></DialogFooter></DialogContent></Dialog>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Удалить задачу?</AlertDialogTitle><AlertDialogDescription>Удаление нельзя отменить. Для временного хранения используйте архив.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Отмена</AlertDialogCancel><AlertDialogAction onClick={deleteTask} className="bg-rose-600 hover:bg-rose-700">Удалить</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );
 }

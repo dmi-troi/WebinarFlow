@@ -15,27 +15,24 @@ model Responsible {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   webinars Webinar[]
   tasks    Task[]
 }
 
 model Webinar {
-  id            String   @id @default(cuid())
-  title         String
-  description   String?
-  date          DateTime
-  responsibleId String?
-  email         String?
-  status           String   @default("planned")
-  mtsLinkWebinarId String?
-  mtsLinkUrl       String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  responsible   Responsible?  @relation(fields: [responsibleId], references: [id])
-  tasks         Task[]
-
+  id                String   @id @default(cuid())
+  title             String
+  description       String?
+  date              DateTime
+  responsibleId     String?
+  email             String?
+  status            String   @default("planned")
+  mtsLinkWebinarId  String?
+  mtsLinkUrl        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  responsible       Responsible? @relation(fields: [responsibleId], references: [id])
+  tasks             Task[]
   @@index([date])
   @@index([status])
   @@index([responsibleId])
@@ -51,10 +48,8 @@ model Task {
   status        String   @default("pending")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
-  webinar     Webinar?     @relation(fields: [webinarId], references: [id])
-  responsible Responsible?  @relation(fields: [responsibleId], references: [id])
-
+  webinar       Webinar? @relation(fields: [webinarId], references: [id])
+  responsible   Responsible? @relation(fields: [responsibleId], references: [id])
   @@index([status])
   @@index([dueDate])
   @@index([webinarId])
@@ -62,15 +57,17 @@ model Task {
 }
 
 model ArchiveWebinar {
-  id            String   @id @default(cuid())
-  originalId    String
-  title         String
-  description   String?
-  date          DateTime
-  responsibleId String?
-  email         String?
-  status        String
-  archivedAt    DateTime @default(now())
+  id                String   @id @default(cuid())
+  originalId        String
+  title             String
+  description       String?
+  date              DateTime
+  responsibleId     String?
+  email             String?
+  status            String
+  mtsLinkWebinarId  String?
+  mtsLinkUrl        String?
+  archivedAt        DateTime @default(now())
 }
 
 model ArchiveTask {

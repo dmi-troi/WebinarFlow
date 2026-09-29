@@ -5,7 +5,7 @@ export interface Webinar {
   date: string;
   responsibleId: string | null;
   email: string | null;
-  status: 'planned' | 'active' | 'completed' | 'cancelled';
+  status: 'planned' | 'active' | 'completed' | 'cancelled' | 'archived';
   mtsLinkWebinarId: string | null;
   mtsLinkUrl: string | null;
   createdAt: string;
@@ -19,9 +19,9 @@ export interface Task {
   title: string;
   webinarId: string | null;
   responsibleId: string | null;
-  taskType: 'unisender' | 'mtsLink' | 'reminder' | 'eventDay' | 'general';
+  taskType: 'unisender' | 'mtsLink' | 'reminder' | 'eventDay' | 'sms' | 'general';
   dueDate: string;
-  status: 'pending' | 'in_progress' | 'done';
+  status: 'pending' | 'in_progress' | 'done' | 'archived';
   createdAt: string;
   updatedAt: string;
   webinar?: Webinar | null;

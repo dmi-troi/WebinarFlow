@@ -1,36 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { randomBytes } from 'node:crypto';
+import { NextResponse } from 'next/server';
 import { setWebhook, deleteWebhook } from '@/lib/telegram/helpers';
 import { db } from '@/lib/db';
-import crypto from 'crypto';
+import { withAuth } from '@/lib/auth';
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    if (body.action === 'set-webhook') {
-      const baseUrl = body.baseUrl;
-      if (!baseUrl) return NextResponse.json({ error: 'Укажите baseUrl' }, { status: 400 });
-      const webhookUrl = `${baseUrl.replace(/\/$/, '')}/api/telegram/webhook`;
-      return NextResponse.json(await setWebhook(webhookUrl));
-    }
-    if (body.action === 'delete-webhook') {
-      await deleteWebhook();
-      return NextResponse.json({ ok: true });
-    }
-    if (body.action === 'generate-bind-code') {
-      const { responsibleId } = body;
-      if (!responsibleId) return NextResponse.json({ error: 'Укажите responsibleId' }, { status: 400 });
-      const code = crypto.randomBytes(3).toString('hex').toUpperCase();
-      await db.settings.upsert({ where: { key: `bind_code_${code}` }, update: { value: responsibleId }, create: { key: `bind_code_${code}`, value: responsibleId } });
-      return NextResponse.json({ code });
-    }
-    if (body.action === 'bind-chat') {
-      const { responsibleId, chatId } = body;
-      if (!responsibleId || !chatId) return NextResponse.json({ error: 'Укажите responsibleId и chatId' }, { status: 400 });
-      await db.responsible.update({ where: { id: responsibleId }, data: { telegram: String(chatId) } });
-      return NextResponse.json({ ok: true });
-    }
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown' }, { status: 500 });
+export const POST = withAuth(async (request: Request) => {
+  const body = await request.json().catch(() => ({}));
+  if (body.action === 'set-webhook') {
+    const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl : '';
+    if (!baseUrl || !/^https:\/\//i.test(baseUrl)) return NextResponse.json({ error: 'Нужен HTTPS baseUrl' }, { status: 400 });
+    return NextResponse.json(await setWebhook(`${baseUrl.replace(/\/$/, '')}/api/telegram/webhook`));
   }
-}
+  if (body.action === 'delete-webhook') return NextResponse.json({ ok: await deleteWebhook() });
+  if (body.action === 'generate-bind-code') {
+    const responsibleId = String(body.responsibleId || '');
+    if (!responsibleId) return NextResponse.json({ error: 'Укажите responsibleId' }, { status: 400 });
+    const responsible = await db.responsible.findUnique({ where: { id: responsibleId }, select: { id: true } });
+    if (!responsible) return NextResponse.json({ error: 'Ответственный не найден' }, { status: 404 });
+    const code = randomBytes(4).toString('hex').toUpperCase();
+    const value = JSON.stringify({ responsibleId, expiresAt: new Date(Date.now() + 15 * 60_000).toISOString() });
+    await db.settings.upsert({ where: { key: `bind_code_${code}` }, update: { value }, create: { key: `bind_code_${code}`, value } });
+    return NextResponse.json({ code, expiresInMinutes: 15 });
+  }
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+});

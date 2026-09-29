@@ -1,9 +1,7 @@
 #!/bin/sh
-set -e
+set -eu
 
-if [ -n "$TURSO_DATABASE_URL" ]; then
-  # Set a valid file: URL so Prisma schema validation doesn't crash.
-  # The adapter in server.mjs handles the real Turso connection.
+if [ -n "${TURSO_DATABASE_URL:-}" ]; then
   export DATABASE_URL="file:/dev/null"
   echo "[entrypoint] Turso mode (adapter handles connection)"
 else
@@ -11,11 +9,12 @@ else
   echo "[entrypoint] Local SQLite mode"
 fi
 
-echo "[entrypoint] Applying database schema (prisma db push)..."
-if npx prisma db push --accept-data-loss --skip-generate; then
+echo "[entrypoint] Checking database schema (no destructive flags)..."
+if npx prisma db push --skip-generate; then
   echo "[entrypoint] Schema is up to date."
 else
-  echo "[entrypoint] WARNING: prisma db push failed — the app may error until this is fixed." >&2
+  echo "[entrypoint] ERROR: prisma db push failed. Startup stopped to avoid data loss." >&2
+  exit 1
 fi
 
 echo "[entrypoint] Starting custom server..."

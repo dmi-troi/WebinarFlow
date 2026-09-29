@@ -2,181 +2,86 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSettings, sendTelegram } from '@/lib/telegram/helpers';
 import { formatInTimeZone } from 'date-fns-tz';
-import { ru } from 'date-fns/locale';
 
 const MSK = 'Europe/Moscow';
+function mskTime(d: Date | string) { return formatInTimeZone(d, MSK, 'HH:mm'); }
+function mskDate(d: Date | string) { return formatInTimeZone(d, MSK, 'd MMMM yyyy'); }
+async function getSetting(key: string) { const s = await db.settings.findUnique({ where: { key } }); return s?.value || ''; }
+async function setSetting(key: string, value: string) { await db.settings.upsert({ where: { key }, update: { value }, create: { key, value } }); }
 
-function mskTime(d: Date | string) {
-  return formatInTimeZone(d, MSK, 'HH:mm', { locale: ru });
-}
-function mskDate(d: Date | string) {
-  return formatInTimeZone(d, MSK, 'd MMMM yyyy', { locale: ru });
-}
-
-async function getSetting(key: string): Promise<string> {
-  const s = await db.settings.findUnique({ where: { key } });
-  return s?.value || '';
-}
-async function setSetting(key: string, value: string) {
-  await db.settings.upsert({ where: { key }, update: { value }, create: { key, value } });
+async function isAuthorized(req: Request) {
+  const configured = process.env.CRON_SECRET || await getSetting('cronSecret');
+  if (!configured) return false;
+  return req.headers.get('authorization') === `Bearer ${configured}`;
 }
 
-function reminderKey(taskId: string, dueDate: Date): string {
-  return `reminded_${taskId}_${formatInTimeZone(dueDate, MSK, 'yyyyMMdd_HHmm')}`;
-}
+function reminderKey(taskId: string, dueDate: Date) { return `reminded_${taskId}_${formatInTimeZone(dueDate, MSK, 'yyyyMMdd_HHmm')}`; }
 
 async function sendMorningSummary(chatId: string, telegramOn: boolean) {
-  const todayMskStr = formatInTimeZone(new Date(), MSK, 'yyyy-MM-dd');
-  const dayStart = new Date(`${todayMskStr}T00:00:00+03:00`);
-  const dayEnd   = new Date(`${todayMskStr}T23:59:59+03:00`);
+  const day = formatInTimeZone(new Date(), MSK, 'yyyy-MM-dd');
+  const dayStart = new Date(`${day}T00:00:00+03:00`);
+  const dayEnd = new Date(`${day}T23:59:59+03:00`);
+  if (await getSetting('cron_morning_sent') === day) return { sent: 0, reason: 'already_sent' };
 
-  const lastSent = await getSetting('cron_morning_sent');
-  if (lastSent === todayMskStr) return { sent: 0, reason: 'already_sent' };
-
-  const tasks = await db.task.findMany({
-    where: { status: { in: ['pending', 'in_progress'] }, dueDate: { gte: dayStart, lte: dayEnd } },
-    include: { responsible: { select: { name: true, telegram: true } }, webinar: { select: { title: true } } },
-    orderBy: { dueDate: 'asc' },
-  });
-
-  const overdueAll = await db.task.findMany({
-    where: { status: { in: ['pending', 'in_progress'] }, dueDate: { lt: dayStart } },
-    include: { responsible: { select: { name: true } } },
-    orderBy: { dueDate: 'asc' },
-  });
-
-  if (tasks.length === 0 && overdueAll.length === 0) {
-    await setSetting('cron_morning_sent', todayMskStr);
-    return { sent: 0, reason: 'no_tasks' };
-  }
-
+  const [tasks, overdueAll] = await Promise.all([
+    db.task.findMany({ where: { status: { in: ['pending', 'in_progress'] }, dueDate: { gte: dayStart, lte: dayEnd } }, include: { responsible: { select: { name: true, telegram: true } }, webinar: { select: { title: true } } }, orderBy: { dueDate: 'asc' } }),
+    db.task.findMany({ where: { status: { in: ['pending', 'in_progress'] }, dueDate: { lt: dayStart } }, include: { responsible: { select: { name: true } }, webinar: { select: { title: true } } }, orderBy: { dueDate: 'asc' } }),
+  ]);
+  if (tasks.length === 0 && overdueAll.length === 0) { await setSetting('cron_morning_sent', day); return { sent: 0, reason: 'no_tasks' }; }
   let sent = 0;
-
   if (telegramOn && chatId) {
     let text = `📋 <b>Задачи на сегодня</b> (${mskDate(new Date())})\n\n`;
-    if (overdueAll.length > 0) {
-      text += `🔴 <b>Просрочено (${overdueAll.length}):</b>\n`;
-      for (const t of overdueAll) text += `   • ${t.title}${t.responsible ? ` — ${t.responsible.name}` : ''}\n`;
-      text += '\n';
-    }
-    if (tasks.length > 0) {
-      text += `<b>На сегодня (${tasks.length}):</b>\n`;
-      for (const t of tasks) {
-        const who = t.responsible ? ` — <b>${t.responsible.name}</b>` : '';
-        text += `   • ${t.title}${who} ⏰ ${mskTime(t.dueDate)}\n`;
-      }
-    }
-    const r = await sendTelegram(chatId, text);
-    if (r.ok) sent++;
+    if (overdueAll.length) text += `🔴 <b>Просрочено (${overdueAll.length}):</b>\n${overdueAll.map((t) => `   • ${t.title}${t.responsible ? ` — ${t.responsible.name}` : ''}`).join('\n')}\n\n`;
+    if (tasks.length) text += `<b>На сегодня (${tasks.length}):</b>\n${tasks.map((t) => `   • ${t.title}${t.responsible ? ` — <b>${t.responsible.name}</b>` : ''} ⏰ ${mskTime(t.dueDate)}`).join('\n')}`;
+    if ((await sendTelegram(chatId, text)).ok) sent++;
   }
-
-  // Личные уведомления по ответственным
   const byResp = new Map<string, typeof tasks>();
-  for (const t of tasks) {
-    const key = t.responsibleId || '_none';
-    if (!byResp.has(key)) byResp.set(key, []);
-    byResp.get(key)!.push(t);
-  }
+  for (const t of tasks) { const key = t.responsibleId || '_none'; if (!byResp.has(key)) byResp.set(key, []); byResp.get(key)!.push(t); }
   for (const [, respTasks] of byResp) {
     const resp = respTasks[0].responsible;
     if (!resp?.telegram || !telegramOn) continue;
-    let pText = `☀️ <b>Доброе утро, ${resp.name}!</b>\n\nНа сегодня <b>${respTasks.length}</b> задач:\n\n`;
-    for (const t of respTasks) pText += `⏰ ${mskTime(t.dueDate)} — ${t.title}\n`;
-    const r = await sendTelegram(resp.telegram, pText);
-    if (r.ok) sent++;
+    const text = `☀️ <b>Доброе утро, ${resp.name}!</b>\n\nНа сегодня <b>${respTasks.length}</b> задач:\n\n${respTasks.map((t) => `⏰ ${mskTime(t.dueDate)} — ${t.title}`).join('\n')}`;
+    if ((await sendTelegram(resp.telegram, text)).ok) sent++;
   }
-
-  await setSetting('cron_morning_sent', todayMskStr);
+  await setSetting('cron_morning_sent', day);
   return { sent };
 }
 
 async function send30minReminders(telegramOn: boolean, chatId: string) {
   const now = new Date();
-  const windowStart = new Date(now.getTime() + 25 * 60_000);
-  const windowEnd   = new Date(now.getTime() + 35 * 60_000);
-
-  const tasks = await db.task.findMany({
-    where: { status: { in: ['pending', 'in_progress'] }, dueDate: { gte: windowStart, lte: windowEnd } },
-    include: { responsible: { select: { name: true, telegram: true } }, webinar: { select: { title: true } } },
-  });
-
-  if (tasks.length === 0) return { sent: 0, reason: 'no_upcoming' };
-
+  const tasks = await db.task.findMany({ where: { status: { in: ['pending', 'in_progress'] }, dueDate: { gte: new Date(now.getTime() + 25 * 60_000), lte: new Date(now.getTime() + 35 * 60_000) } }, include: { responsible: { select: { name: true, telegram: true } }, webinar: { select: { title: true } } } });
   let sent = 0;
-  for (const t of tasks) {
-    const key = reminderKey(t.id, t.dueDate);
-    const reminded = await getSetting(key);
-    if (reminded) continue;
-
-    const time = mskTime(t.dueDate);
-    const webinar = t.webinar ? `\n\n🎬 Вебинар: ${t.webinar.title}` : '';
-    const text = `⚠️ <b>Через 30 минут</b>\n\n📅 ${time} МСК\n📝 <b>${t.title}</b>${webinar}`;
-
-    let notified = false;
-
-    if (telegramOn && t.responsible?.telegram) {
-      const r = await sendTelegram(t.responsible.telegram, text);
-      if (r.ok) { sent++; notified = true; }
-    } else if (telegramOn && chatId) {
-      // Нет личного Telegram у ответственного — шлём в общий чат
-      const r = await sendTelegram(chatId, text);
-      if (r.ok) { sent++; notified = true; }
-    }
-
-    // Помечаем как напомнено только если реально отправили
-    if (notified) await setSetting(key, now.toISOString());
+  for (const task of tasks) {
+    if (await getSetting(reminderKey(task.id, task.dueDate))) continue;
+    const text = `⚠️ <b>Через 30 минут</b>\n\n📅 ${mskTime(task.dueDate)} МСК\n📝 <b>${task.title}</b>${task.webinar ? `\n\n🎬 Вебинар: ${task.webinar.title}` : ''}`;
+    let ok = false;
+    if (telegramOn && task.responsible?.telegram) ok = (await sendTelegram(task.responsible.telegram, text)).ok;
+    else if (telegramOn && chatId) ok = (await sendTelegram(chatId, text)).ok;
+    if (ok) { sent++; await setSetting(reminderKey(task.id, task.dueDate), now.toISOString()); }
   }
   return { sent };
 }
 
 async function autoArchiveDoneTasks() {
   const cutoff = new Date(Date.now() - 24 * 60 * 60_000);
-  const doneTasks = await db.task.findMany({
-    where: { status: 'done', updatedAt: { lt: cutoff } },
-  });
-  if (doneTasks.length === 0) return { archived: 0 };
-
-  for (const task of doneTasks) {
-    await db.archiveTask.create({
-      data: {
-        originalId: task.id,
-        title: task.title,
-        webinarId: task.webinarId,
-        responsibleId: task.responsibleId,
-        taskType: task.taskType,
-        dueDate: task.dueDate,
-        status: task.status,
-      },
-    });
-    await db.task.delete({ where: { id: task.id } });
-  }
-  return { archived: doneTasks.length };
+  const tasks = await db.task.findMany({ where: { status: 'done', updatedAt: { lt: cutoff } } });
+  if (!tasks.length) return { archived: 0 };
+  await db.$transaction(tasks.map((task) => db.task.update({ where: { id: task.id }, data: { status: 'archived' } })));
+  return { archived: tasks.length };
 }
 
 export async function GET(req: Request) {
-  const ua = req.headers.get('user-agent') || '';
-  if (
-    !ua.includes('cron-job.org') &&
-    process.env.CRON_SECRET &&
-    req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!(await isAuthorized(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const settings = await getSettings();
     const telegramOn = settings.telegramEnabled === 'true';
-    if (!telegramOn) return NextResponse.json({ status: 'disabled' });
-
-    const chatId = settings.telegramChatId;
-    const mskHour = parseInt(formatInTimeZone(new Date(), MSK, 'H'));
     const results: Record<string, unknown> = {};
-
-    if (mskHour >= 9 && mskHour < 10) results.morning = await sendMorningSummary(chatId || '', telegramOn);
-    results.reminders = await send30minReminders(telegramOn, chatId || '');
+    // Архивация завершённых задач не зависит от Telegram и должна работать всегда.
     results.autoArchive = await autoArchiveDoneTasks();
-
+    if (!telegramOn) return NextResponse.json({ status: 'telegram_disabled', telegramOn, ...results });
+    const mskHour = parseInt(formatInTimeZone(new Date(), MSK, 'H'), 10);
+    if (mskHour >= 9 && mskHour < 10) results.morning = await sendMorningSummary(settings.telegramChatId || '', telegramOn);
+    results.reminders = await send30minReminders(telegramOn, settings.telegramChatId || '');
     return NextResponse.json({ status: 'ok', mskHour, telegramOn, ...results });
-  } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown' }, { status: 500 });
-  }
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown' }, { status: 500 }); }
 }
