@@ -294,8 +294,8 @@ export function DashboardPage() {
           )}
         </section>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[1.45fr_0.85fr] gap-5">
-          <Card className="shadow-sm bg-white">
+        <div className="grid min-w-0 grid-cols-1 xl:grid-cols-[1.45fr_0.85fr] gap-5">
+          <Card className="min-w-0 overflow-hidden shadow-sm bg-white">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Ближайшие вебинары</CardTitle>
@@ -334,10 +334,10 @@ export function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm bg-white">
+          <Card className="min-w-0 overflow-hidden shadow-sm bg-white">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
+              <div className="min-w-0 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <CardTitle className="text-base">Подготовка ближайшего</CardTitle>
                   <p className="text-xs text-slate-500 mt-1 truncate">{nextWebinar?.title || 'Нет вебинара'}</p>
                 </div>
@@ -373,9 +373,9 @@ export function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-5">
-          <Card className="shadow-sm bg-white">
+          <Card className="min-w-0 overflow-hidden shadow-sm bg-white">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+              <div className="min-w-0 flex items-center justify-between">
                 <CardTitle className="text-base">Задачи на сегодня</CardTitle>
                 <Button variant="ghost" size="sm" onClick={() => setCurrentPage('tasks')}>Все задачи <ArrowRight className="h-4 w-4 ml-1" /></Button>
               </div>
