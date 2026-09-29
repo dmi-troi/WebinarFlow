@@ -433,10 +433,18 @@ export function DashboardPage() {
                     <div className="rounded-xl bg-slate-50 p-3"><Film className="h-4 w-4 text-pink-500" /><div className="mt-2 text-xl font-bold">{mtsStats.recordingsCount}</div><div className="text-[11px] text-slate-500">Записей</div></div>
                     <div className="rounded-xl bg-slate-50 p-3"><CheckCircle2 className="h-4 w-4 text-emerald-500" /><div className="mt-2 text-xl font-bold">{mtsStats.completedWebinars}</div><div className="text-[11px] text-slate-500">Проведено</div></div>
                   </div>
-                  <div className="mt-4 text-xs text-slate-500 flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Read-only синхронизация активна
-                    {mtsStats.syncedAt && <span className="ml-auto">обновлено {formatDateTime(mtsStats.syncedAt)}</span>}
+                  <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2 text-xs text-slate-500">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Read-only синхронизация активна
+                    </div>
+                    <span>Связано с WebinarFlow: ${webinars.filter((w) => Boolean(w.mtsLinkEventSessionId || w.mtsLinkWebinarId)).length} веб.</span>
+                    {mtsStats.syncedAt && <span className="sm:ml-auto">обновлено {formatDateTime(mtsStats.syncedAt)}</span>}
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage('webinars')}>
+                      Вебинары <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                    </Button>
                   </div>
                 </>
               ) : (
