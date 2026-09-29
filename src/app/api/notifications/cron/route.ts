@@ -67,12 +67,48 @@ async function send30minReminders(telegramOn: boolean, chatId: string) {
   return { sent };
 }
 
-async function autoArchiveDoneTasks() {
+async function autoArchiveCompleted() {
   const cutoff = new Date(Date.now() - 24 * 60 * 60_000);
-  const tasks = await db.task.findMany({ where: { status: 'done', updatedAt: { lt: cutoff } } });
-  if (!tasks.length) return { archived: 0 };
-  await db.$transaction(tasks.map((task) => db.task.update({ where: { id: task.id }, data: { status: 'archived' } })));
-  return { archived: tasks.length };
+
+  const [tasks, webinars] = await Promise.all([
+    db.task.findMany({
+      where: {
+        status: 'done',
+        OR: [
+          { completedAt: { lte: cutoff } },
+          { completedAt: null, updatedAt: { lt: cutoff } },
+        ],
+      },
+      select: { id: true },
+    }),
+    db.webinar.findMany({
+      where: {
+        status: 'completed',
+        OR: [
+          { completedAt: { lte: cutoff } },
+          { completedAt: null, updatedAt: { lt: cutoff } },
+        ],
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  if (!tasks.length && !webinars.length) {
+    return { tasks: 0, webinars: 0 };
+  }
+
+  await db.$transaction([
+    ...tasks.map((task) => db.task.update({
+      where: { id: task.id },
+      data: { status: 'archived' },
+    })),
+    ...webinars.map((webinar) => db.webinar.update({
+      where: { id: webinar.id },
+      data: { status: 'archived' },
+    })),
+  ]);
+
+  return { tasks: tasks.length, webinars: webinars.length };
 }
 
 export async function GET(req: Request) {
@@ -81,8 +117,8 @@ export async function GET(req: Request) {
     const settings = await getSettings();
     const telegramOn = settings.telegramEnabled === 'true';
     const results: Record<string, unknown> = {};
-    // Архивация завершённых задач не зависит от Telegram и должна работать всегда.
-    results.autoArchive = await autoArchiveDoneTasks();
+    // Автоархивация завершённых объектов не зависит от Telegram и работает всегда.
+    results.autoArchive = await autoArchiveCompleted();
     if (!telegramOn) return NextResponse.json({ status: 'telegram_disabled', telegramOn, ...results });
     const mskHour = parseInt(formatInTimeZone(new Date(), MSK, 'H'), 10);
     if (mskHour >= 9 && mskHour < 10) results.morning = await sendMorningSummary(settings.telegramChatId || '', telegramOn);
