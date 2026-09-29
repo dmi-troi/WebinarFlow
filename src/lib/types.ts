@@ -7,7 +7,10 @@ export interface Webinar {
   email: string | null;
   status: 'planned' | 'active' | 'completed' | 'cancelled' | 'archived';
   mtsLinkWebinarId: string | null;
+  mtsLinkEventId: string | null;
+  mtsLinkEventSessionId: string | null;
   mtsLinkUrl: string | null;
+  mtsLinkLastSyncAt: string | null;
   createdAt: string;
   updatedAt: string;
   responsible?: Responsible | null;
