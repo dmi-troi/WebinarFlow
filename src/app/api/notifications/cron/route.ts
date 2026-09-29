@@ -10,9 +10,14 @@ async function getSetting(key: string) { const s = await db.settings.findUnique(
 async function setSetting(key: string, value: string) { await db.settings.upsert({ where: { key }, update: { value }, create: { key, value } }); }
 
 async function isAuthorized(req: Request) {
-  const configured = process.env.CRON_SECRET || await getSetting('cronSecret');
-  if (!configured) return false;
-  return req.headers.get('authorization') === `Bearer ${configured}`;
+  const dbSecret = await getSetting('cronSecret');
+  const envSecret = process.env.CRON_SECRET || '';
+  const authorization = req.headers.get('authorization') || '';
+  const headerSecret = req.headers.get('x-cron-secret') || '';
+  const bearerSecret = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+  const candidates = [envSecret, dbSecret].filter(Boolean);
+  if (!candidates.length) return false;
+  return candidates.includes(bearerSecret) || candidates.includes(headerSecret.trim());
 }
 
 function reminderKey(taskId: string, dueDate: Date) { return `reminded_${taskId}_${formatInTimeZone(dueDate, MSK, 'yyyyMMdd_HHmm')}`; }
