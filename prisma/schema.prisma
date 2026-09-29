@@ -27,6 +27,7 @@ model Webinar {
   responsibleId     String?
   email             String?
   status            String   @default("planned")
+  completedAt       DateTime?
   mtsLinkWebinarId     String?
   mtsLinkEventId       String?
   mtsLinkEventSessionId String?
@@ -49,6 +50,7 @@ model Task {
   taskType      String   @default("general")
   dueDate       DateTime
   status        String   @default("pending")
+  completedAt   DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   webinar       Webinar? @relation(fields: [webinarId], references: [id])
@@ -68,6 +70,7 @@ model ArchiveWebinar {
   responsibleId     String?
   email             String?
   status            String
+  completedAt       DateTime?
   mtsLinkWebinarId      String?
   mtsLinkEventId        String?
   mtsLinkEventSessionId String?
@@ -85,6 +88,7 @@ model ArchiveTask {
   taskType      String
   dueDate       DateTime
   status        String
+  completedAt  DateTime?
   archivedAt    DateTime @default(now())
 }
 
