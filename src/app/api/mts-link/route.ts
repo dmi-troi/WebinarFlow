@@ -186,7 +186,7 @@ async function loadDetail(sessionId: string, apiKey: string, baseUrl: string) {
     apiKey,
     baseUrl,
   );
-  return { ok: true, status: detail.status, detail: detail.data, stats: stats.ok ? extractArray(stats.data)[0] || stats.data?.data || null : null };
+  return { ok: true, status: detail.status, detail: detail.data, stats: stats.ok ? (extractArray(stats.data)[0] || null) : null };
 }
 
 export const GET = withAuth(async (request: Request) => {
