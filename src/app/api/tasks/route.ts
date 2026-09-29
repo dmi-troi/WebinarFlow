@@ -18,7 +18,19 @@ export const POST = withAuth(async (request: Request) => {
     if (!webinar) return NextResponse.json({ error: 'Вебинар не найден' }, { status: 404 });
     if (webinar.status === 'archived') return NextResponse.json({ error: 'Нельзя создать задачу для архивного вебинара' }, { status: 409 });
   }
-  const task = await db.task.create({ data: { title: String(data.title).trim(), webinarId: data.webinarId || null, responsibleId: data.responsibleId || null, taskType: data.taskType || 'general', dueDate: new Date(data.dueDate), status: data.status || 'pending' }, include: { webinar: true, responsible: true } });
+  const nextStatus = data.status || 'pending';
+  const task = await db.task.create({
+    data: {
+      title: String(data.title).trim(),
+      webinarId: data.webinarId || null,
+      responsibleId: data.responsibleId || null,
+      taskType: data.taskType || 'general',
+      dueDate: new Date(data.dueDate),
+      status: nextStatus,
+      completedAt: nextStatus === 'done' ? new Date() : null,
+    },
+    include: { webinar: true, responsible: true },
+  });
   return NextResponse.json(task, { status: 201 });
 });
 
