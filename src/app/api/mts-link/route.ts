@@ -103,7 +103,9 @@ function flattenEvents(events: any[]) {
         startDate,
         endDate,
         status: String(session.status || event.status || ''),
+        ownerId: event.createUser?.id ? String(event.createUser.id) : '',
         ownerName: event.createUser ? `${event.createUser.name || ''} ${event.createUser.secondName || ''}`.trim() : '',
+        ownerEmail: event.createUser?.email || '',
         participantCount: Number(session.participationsCount ?? event.participationsCount ?? 0),
         joinUrl: session.link?.url || session.link || event.link?.url || event.link || '',
         recordUrl: session.recordUrl?.url || session.recordUrl || event.recordUrl?.url || event.recordUrl || '',
@@ -218,9 +220,20 @@ export const GET = withAuth(async (request: Request) => {
       const response = await fetchSchedule(apiKey, baseUrl);
       if (!response.ok) return NextResponse.json({ error: `МТС Линк вернул ${response.status}` }, { status: 502 });
       const webinars = flattenEvents(response.events || []);
+      const local = await db.webinar.findMany({
+        where: { status: { not: 'archived' } },
+        select: { id: true, title: true, mtsLinkWebinarId: true, mtsLinkEventId: true, mtsLinkEventSessionId: true },
+      });
+      const enriched = webinars.map((mts) => {
+        const linked = local.find((item) =>
+          (mts.eventId && item.mtsLinkEventId === mts.eventId) ||
+          (mts.id && (item.mtsLinkEventSessionId === mts.id || item.mtsLinkWebinarId === mts.id)),
+        );
+        return linked ? { ...mts, linkedWebinarId: linked.id } : mts;
+      });
       return NextResponse.json({
-        webinars,
-        total: webinars.length,
+        webinars: enriched,
+        total: enriched.length,
         source: 'mts-link-read-only',
         syncedAt: new Date().toISOString(),
       });
