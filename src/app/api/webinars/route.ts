@@ -16,6 +16,31 @@ export const POST = withAuth(async (request: Request) => {
   const data = await request.json().catch(() => ({}));
   if (!data.title || !data.date || Number.isNaN(new Date(data.date).getTime())) return NextResponse.json({ error: 'Название и корректная дата обязательны' }, { status: 400 });
   const nextStatus = data.status || 'planned';
+  const mtsEventId = data.mtsLinkEventId ? String(data.mtsLinkEventId) : null;
+  const mtsSessionId = data.mtsLinkEventSessionId ? String(data.mtsLinkEventSessionId) : null;
+  const mtsWebinarId = data.mtsLinkWebinarId ? String(data.mtsLinkWebinarId) : null;
+
+  if (mtsEventId || mtsSessionId || mtsWebinarId) {
+    const duplicate = await db.webinar.findFirst({
+      where: {
+        status: { not: 'archived' },
+        OR: [
+          ...(mtsEventId ? [{ mtsLinkEventId: mtsEventId }] : []),
+          ...(mtsSessionId ? [{ mtsLinkEventSessionId: mtsSessionId }] : []),
+          ...(mtsWebinarId ? [{ mtsLinkWebinarId: mtsWebinarId }] : []),
+        ],
+      },
+      select: { id: true, title: true },
+    });
+    if (duplicate) {
+      return NextResponse.json({
+        error: 'Это мероприятие МТС Линк уже добавлено в WebinarFlow',
+        webinarId: duplicate.id,
+        title: duplicate.title,
+      }, { status: 409 });
+    }
+  }
+
   const webinar = await db.webinar.create({
     data: {
       title: String(data.title).trim(),
@@ -25,6 +50,11 @@ export const POST = withAuth(async (request: Request) => {
       email: data.email || null,
       status: nextStatus,
       completedAt: nextStatus === 'completed' ? new Date() : null,
+      mtsLinkWebinarId: mtsWebinarId,
+      mtsLinkEventId: mtsEventId,
+      mtsLinkEventSessionId: mtsSessionId,
+      mtsLinkUrl: data.mtsLinkUrl || null,
+      mtsLinkLastSyncAt: data.mtsLinkLastSyncAt ? new Date(data.mtsLinkLastSyncAt) : null,
     },
     include: { responsible: true, tasks: true },
   });
