@@ -327,11 +327,40 @@ export function WebinarsPage() {
         }
         return;
       }
-      toast.success('Вебинар из МТС Линк добавлен в WebinarFlow');
+      const planResponse = await fetch('/api/webinars/generate-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webinarId: data.id }),
+      });
+      const planData = await planResponse.json().catch(() => ({}));
+
+      if (!planResponse.ok && planResponse.status !== 400) {
+        throw new Error(planData.error || 'Вебинар создан, но план подготовки не удалось создать');
+      }
+
       setMtsWebinars((items) => items.map((mts) => mts.id === item.id ? { ...mts, linkedWebinarId: data.id } : mts));
       setMtsImportOpen(false);
+
+      const refreshedResponse = await fetch('/api/webinars', { cache: 'no-store' });
+      const refreshedWebinars = await refreshedResponse.json().catch(() => []);
+      const importedWebinar = Array.isArray(refreshedWebinars)
+        ? refreshedWebinars.find((webinar: Webinar) => webinar.id === data.id)
+        : null;
+
+      if (importedWebinar) {
+        setSelected(importedWebinar);
+        setDetailOpen(true);
+      }
+
       await loadData();
       triggerRefresh();
+
+      if (planResponse.ok) {
+        toast.success(`Вебинар добавлен. План подготовки создан: ${planData.created || 0} задач`);
+      } else {
+        toast.success('Вебинар добавлен, но план подготовки пока не создан');
+        toast.info(planData.error || 'План можно создать позже вручную');
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Ошибка импорта');
     } finally {
@@ -537,7 +566,7 @@ export function WebinarsPage() {
                       className="shrink-0 bg-[#1E5BEB] hover:bg-[#1749bb]"
                     >
                       {mtsImportSaving === item.id ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Import className="h-3.5 w-3.5 mr-1.5" />}
-                      {item.linkedWebinarId ? 'Добавлен' : 'Добавить'}
+                      {item.linkedWebinarId ? 'Добавлен' : 'Добавить и создать план'}
                     </Button>
                   </div>
                 ))}
