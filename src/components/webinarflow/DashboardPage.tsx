@@ -61,6 +61,14 @@ function mskDayKey(value: Date | string) {
   return formatInTimeZone(value, MSK, 'yyyy-MM-dd');
 }
 
+function isDashboardTaskOverdue(task: TaskModel) {
+  return task.status !== 'done' && task.status !== 'archived' && new Date(task.dueDate).getTime() < Date.now();
+}
+
+function isDashboardWebinarOverdue(webinar: DashboardWebinar) {
+  return webinar.status !== 'completed' && webinar.status !== 'cancelled' && new Date(webinar.date).getTime() < Date.now();
+}
+
 function formatDateTime(value: string) {
   const date = new Date(value);
   const todayKey = mskDayKey(new Date());
@@ -315,7 +323,7 @@ export function DashboardPage() {
                     const total = webinar.tasks?.length ?? 0;
                     const progress = total ? Math.round((done / total) * 100) : 0;
                     return (
-                      <button key={webinar.id} type="button" onClick={() => setCurrentPage('webinars')} className="w-full py-4 text-left flex flex-col md:flex-row md:items-center gap-3 hover:bg-slate-50/70 rounded-xl px-2 -mx-2 transition-colors">
+                      <button key={webinar.id} type="button" onClick={() => setCurrentPage('webinars')} className={`w-full py-4 text-left flex flex-col md:flex-row md:items-center gap-3 rounded-xl px-2 -mx-2 transition-colors ${webinar.status === 'completed' ? 'bg-emerald-50/70 hover:bg-emerald-50' : isDashboardWebinarOverdue(webinar) ? 'bg-rose-50/70 hover:bg-rose-50' : 'hover:bg-slate-50/70'}`}>
                         <div className="w-[90px] shrink-0">
                           <div className="text-sm font-semibold text-slate-900">{formatInTimeZone(webinar.date, MSK, 'd MMM', { locale: ru })}</div>
                           <div className="text-xs text-slate-500">{formatInTimeZone(webinar.date, MSK, 'HH:mm')}</div>
@@ -394,7 +402,7 @@ export function DashboardPage() {
               {todayTasks.length ? (
                 <div className="divide-y">
                   {todayTasks.map((task) => (
-                    <div key={task.id} className="py-3.5 flex items-center gap-3">
+                    <div key={task.id} className={`py-3.5 px-2 rounded-xl flex items-center gap-3 ${task.status === 'done' ? 'bg-emerald-50/70' : isDashboardTaskOverdue(task) ? 'bg-rose-50/70' : ''}`}>
                       <CheckCircle2 className={`h-4.5 w-4.5 shrink-0 ${task.status === 'done' ? 'text-emerald-500' : 'text-slate-300'}`} />
                       <div className="flex-1 min-w-0">
                         <div className={`text-sm font-medium truncate ${task.status === 'done' ? 'line-through text-slate-400' : 'text-slate-900'}`}>{task.title}</div>
