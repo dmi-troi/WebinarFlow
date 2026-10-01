@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import {
   Archive, ArrowRight, CalendarDays, CheckCircle2, CircleAlert, Clock3,
-  Download, ExternalLink, ListChecks, Pencil, Plus, RefreshCw, Search,
+  Download, ExternalLink, Import, ListChecks, Pencil, Plus, RefreshCw, Search,
   Sparkles, Trash2, Users, Video, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -30,6 +30,23 @@ import { mskDateInputValue, mskInputToDate, mskTimeInputValue } from '@/lib/msk-
 import { MtsLinkPanel } from '@/components/webinarflow/MtsLinkPanel';
 
 const MSK = 'Europe/Moscow';
+
+type MtsImportItem = {
+  id: string;
+  eventId: string;
+  title: string;
+  description?: string;
+  startDate: string;
+  endDate?: string;
+  status?: string;
+  ownerId?: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  participantCount?: number;
+  joinUrl?: string;
+  recordUrl?: string;
+  linkedWebinarId?: string;
+};
 
 type WebinarForm = {
   title: string;
@@ -94,6 +111,9 @@ export function WebinarsPage() {
   const [mtsWebinars, setMtsWebinars] = useState<any[]>([]);
   const [mtsLoading, setMtsLoading] = useState(false);
   const [mtsError, setMtsError] = useState('');
+  const [mtsImportOpen, setMtsImportOpen] = useState(false);
+  const [mtsImportSearch, setMtsImportSearch] = useState('');
+  const [mtsImportSaving, setMtsImportSaving] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -244,12 +264,93 @@ export function WebinarsPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Не удалось получить данные МТС Линк');
       setMtsWebinars(Array.isArray(data.webinars) ? data.webinars : []);
+      return Array.isArray(data.webinars) ? data.webinars : [];
     } catch (error) {
-      setMtsError(error instanceof Error ? error.message : 'Ошибка МТС Линк');
+      const message = error instanceof Error ? error.message : 'Ошибка МТС Линк';
+      setMtsError(message);
+      return [];
     } finally {
       setMtsLoading(false);
     }
   };
+
+  const openMtsImport = async () => {
+    setMtsImportSearch('');
+    setMtsImportOpen(true);
+    if (!mtsWebinars.length) await loadMts();
+  };
+
+  const findResponsibleId = (item: MtsImportItem) => {
+    const ownerEmail = (item.ownerEmail || '').trim().toLowerCase();
+    const ownerName = (item.ownerName || '').trim().toLowerCase();
+    const exactEmail = ownerEmail
+      ? responsibles.find((r) => r.isActive && (r.email || '').trim().toLowerCase() === ownerEmail)
+      : null;
+    if (exactEmail) return exactEmail.id;
+    if (!ownerName) return '';
+    const normalized = ownerName.replace(/\s+/g, ' ');
+    const exactName = responsibles.find((r) => r.isActive && r.name.trim().toLowerCase() === normalized);
+    return exactName?.id || '';
+  };
+
+  const importFromMts = async (item: MtsImportItem) => {
+    if (item.linkedWebinarId) {
+      toast.info('Это мероприятие уже добавлено в WebinarFlow');
+      return;
+    }
+    setMtsImportSaving(item.id);
+    try {
+      const date = new Date(item.startDate);
+      if (Number.isNaN(date.getTime())) throw new Error('МТС Линк не вернул корректную дату мероприятия');
+      const response = await fetch('/api/webinars', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.title,
+          description: item.description || null,
+          date: date.toISOString(),
+          responsibleId: findResponsibleId(item) || null,
+          status: 'planned',
+          mtsLinkWebinarId: item.id || item.eventId || null,
+          mtsLinkEventId: item.eventId || null,
+          mtsLinkEventSessionId: item.id || null,
+          mtsLinkUrl: item.joinUrl || item.recordUrl || null,
+          mtsLinkLastSyncAt: new Date().toISOString(),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 409 && data.webinarId) {
+          toast.info('Этот вебинар уже есть в WebinarFlow');
+        } else {
+          throw new Error(data.error || 'Не удалось добавить вебинар');
+        }
+        return;
+      }
+      toast.success('Вебинар из МТС Линк добавлен в WebinarFlow');
+      setMtsWebinars((items) => items.map((mts) => mts.id === item.id ? { ...mts, linkedWebinarId: data.id } : mts));
+      setMtsImportOpen(false);
+      await loadData();
+      triggerRefresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка импорта');
+    } finally {
+      setMtsImportSaving(null);
+    }
+  };
+
+  const mtsImportItems = useMemo(() => {
+    const q = mtsImportSearch.trim().toLowerCase();
+    return (mtsWebinars as MtsImportItem[])
+      .filter((item) => !q || item.title.toLowerCase().includes(q) || (item.description || '').toLowerCase().includes(q) || (item.ownerName || '').toLowerCase().includes(q))
+      .sort((a, b) => {
+        const linkedA = a.linkedWebinarId ? 1 : 0;
+        const linkedB = b.linkedWebinarId ? 1 : 0;
+        if (linkedA !== linkedB) return linkedA - linkedB;
+        return new Date(a.startDate || 0).getTime() - new Date(b.startDate || 0).getTime();
+      })
+      .slice(0, 80);
+  }, [mtsWebinars, mtsImportSearch]);
 
   if (loading) {
     return <div className="p-4 md:p-7 bg-slate-50/70 min-h-full"><div className="max-w-[1500px] mx-auto space-y-4"><div className="h-20 rounded-2xl bg-white border animate-pulse" />{[1, 2, 3].map((i) => <div key={i} className="h-28 rounded-2xl bg-white border animate-pulse" />)}</div></div>;
@@ -264,7 +365,12 @@ export function WebinarsPage() {
             <h1 className="mt-1 text-2xl md:text-3xl font-bold tracking-tight text-slate-950">Вебинары</h1>
             <p className="mt-1 text-sm text-slate-500">Подготовка, контроль задач и результаты в одном месте.</p>
           </div>
-          <Button onClick={openCreate} className="bg-[#1E5BEB] hover:bg-[#1749bb]"><Plus className="h-4 w-4 mr-2" /> Вебинар</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={openMtsImport}>
+              <Import className="h-4 w-4 mr-2" /> Из МТС Линк
+            </Button>
+            <Button onClick={openCreate} className="bg-[#1E5BEB] hover:bg-[#1749bb]"><Plus className="h-4 w-4 mr-2" /> Вебинар</Button>
+          </div>
         </header>
 
         <section className="rounded-2xl border bg-white shadow-sm p-4">
@@ -381,6 +487,69 @@ export function WebinarsPage() {
           </div>}
         </section>
       </div>
+
+      <Dialog open={mtsImportOpen} onOpenChange={setMtsImportOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader>
+            <DialogTitle>Добавить вебинар из МТС Линк</DialogTitle>
+            <DialogDescription>Выберите существующее мероприятие МТС Линк. WebinarFlow создаст только локальную запись и сохранит связь с МТС Линк. Никаких изменений в МТС Линк не выполняется.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                value={mtsImportSearch}
+                onChange={(e) => setMtsImportSearch(e.target.value)}
+                placeholder="Поиск по названию, описанию или владельцу"
+                className="pl-9"
+              />
+            </div>
+            {mtsLoading ? (
+              <div className="py-12 text-center text-sm text-slate-500">
+                <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
+                Загружаю мероприятия из МТС Линк…
+              </div>
+            ) : mtsError ? (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{mtsError}</div>
+            ) : mtsImportItems.length === 0 ? (
+              <div className="py-12 text-center text-sm text-slate-500">Ничего не найдено.</div>
+            ) : (
+              <div className="space-y-2">
+                {mtsImportItems.map((item) => (
+                  <div key={item.eventId + '-' + item.id} className="rounded-xl border bg-white p-3 flex flex-col md:flex-row md:items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-medium text-sm text-slate-900">{item.title || 'Без названия'}</div>
+                        {item.linkedWebinarId ? <Badge variant="outline" className="text-[10px] border-emerald-200 text-emerald-700 bg-emerald-50">Уже добавлен</Badge> : <Badge variant="outline" className="text-[10px] border-rose-200 text-rose-700 bg-rose-50">МТС Линк</Badge>}
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 mt-1">
+                        {item.startDate && <span>{formatInTimeZone(item.startDate, MSK, 'd MMM yyyy, HH:mm')}</span>}
+                        {item.ownerName && <span>{item.ownerName}</span>}
+                        {item.ownerEmail && <span>{item.ownerEmail}</span>}
+                        {item.participantCount > 0 && <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />{item.participantCount}</span>}
+                      </div>
+                      {item.description && <div className="text-xs text-slate-400 mt-1 line-clamp-2">{item.description}</div>}
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => importFromMts(item)}
+                      disabled={Boolean(item.linkedWebinarId) || mtsImportSaving === item.id}
+                      className="shrink-0 bg-[#1E5BEB] hover:bg-[#1749bb]"
+                    >
+                      {mtsImportSaving === item.id ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Import className="h-3.5 w-3.5 mr-1.5" />}
+                      {item.linkedWebinarId ? 'Добавлен' : 'Добавить'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMtsImportOpen(false)}>Закрыть</Button>
+            <Button variant="outline" onClick={() => loadMts()} disabled={mtsLoading}><RefreshCw className="h-4 w-4 mr-2" />Обновить список</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
