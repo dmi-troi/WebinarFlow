@@ -76,6 +76,10 @@ function readiness(webinar: Webinar) {
   return { percent: Math.round((done / tasks.length) * 100), done, total: tasks.length };
 }
 
+function isWebinarOverdue(webinar: Webinar) {
+  return webinar.status !== 'completed' && webinar.status !== 'cancelled' && new Date(webinar.date).getTime() < Date.now();
+}
+
 function formatWebinarDate(value: string) {
   return formatInTimeZone(value, MSK, 'd MMMM yyyy, HH:mm');
 }
@@ -444,8 +448,15 @@ export function WebinarsPage() {
             {filteredWebinars.map((w) => {
               const st = statusLabels[w.status] || statusLabels.planned;
               const r = readiness(w);
+              const completed = w.status === 'completed';
+              const overdue = isWebinarOverdue(w);
+              const stateClass = completed
+                ? 'bg-emerald-50/80 border-emerald-200'
+                : overdue
+                  ? 'bg-rose-50/80 border-rose-200'
+                  : 'bg-white border-slate-200/80';
               return (
-                <Card key={w.id} className="rounded-2xl border-slate-200/80 shadow-sm hover:shadow-md transition-all bg-white overflow-hidden">
+                <Card key={w.id} className={`rounded-2xl shadow-sm hover:shadow-md transition-all ${stateClass} overflow-hidden`}>
                   <CardContent className="p-0">
                     <div className="p-4 md:p-5">
                       <div className="flex flex-col lg:flex-row lg:items-center gap-4">
