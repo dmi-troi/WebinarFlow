@@ -526,7 +526,7 @@ export function WebinarsPage() {
                         {item.startDate && <span>{formatInTimeZone(item.startDate, MSK, 'd MMM yyyy, HH:mm')}</span>}
                         {item.ownerName && <span>{item.ownerName}</span>}
                         {item.ownerEmail && <span>{item.ownerEmail}</span>}
-                        {item.participantCount > 0 && <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />{item.participantCount}</span>}
+                        {(item.participantCount ?? 0) > 0 && <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />{item.participantCount}</span>}
                       </div>
                       {item.description && <div className="text-xs text-slate-400 mt-1 line-clamp-2">{item.description}</div>}
                     </div>
