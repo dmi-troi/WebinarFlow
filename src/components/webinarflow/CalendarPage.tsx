@@ -18,6 +18,11 @@ function dayKey(value: Date | string) {
   return formatMsk(value, 'yyyy-MM-dd');
 }
 
+function isCalendarOverdue(event: CalendarEvent) {
+  return event.status !== 'done' && event.status !== 'completed' && event.status !== 'cancelled'
+    && new Date(event.date).getTime() < Date.now();
+}
+
 function viewRange(currentDate: Date, view: CalendarView) {
   if (view === 'month') return { start: startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 }), end: endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 }) };
   if (view === 'week') return { start: startOfWeek(currentDate, { weekStartsOn: 1 }), end: endOfWeek(currentDate, { weekStartsOn: 1 }) };
@@ -29,10 +34,23 @@ function viewRange(currentDate: Date, view: CalendarView) {
 }
 
 function EventChip({ event }: { event: CalendarEvent }) {
+  const completed = event.status === 'done' || event.status === 'completed';
+  const overdue = isCalendarOverdue(event);
+  const stateClass = completed
+    ? 'bg-emerald-50/80 border-emerald-200'
+    : overdue
+      ? 'bg-rose-50/80 border-rose-200'
+      : 'bg-slate-50 border-slate-200';
   return (
-    <div className="rounded-lg px-2 py-1.5 bg-slate-50 border border-slate-200 text-left">
-      <div className="flex items-start gap-1.5"><span className="mt-0.5 shrink-0">{event.type === 'webinar' ? '🎬' : '📋'}</span><span className="text-xs font-medium text-slate-800 line-clamp-2">{event.title}</span></div>
-      <div className="mt-1 text-[10px] text-slate-400">{formatMsk(event.date, 'HH:mm')} МСК{event.responsible ? ` · ${event.responsible}` : ''}</div>
+    <div className={`rounded-lg px-2 py-1.5 border text-left ${stateClass}`}>
+      <div className="flex items-start gap-1.5">
+        <span className="mt-0.5 shrink-0">{completed ? '✅' : overdue ? '🔴' : event.type === 'webinar' ? '🎬' : '📋'}</span>
+        <span className="text-xs font-medium text-slate-800 line-clamp-2">{event.title}</span>
+      </div>
+      <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+        <span className={completed ? 'text-emerald-700' : overdue ? 'text-rose-700' : 'text-slate-400'}>{completed ? 'Выполнено' : overdue ? 'Просрочено' : `${formatMsk(event.date, 'HH:mm')} МСК`}</span>
+        {!completed && !overdue && event.responsible ? <span className="text-slate-400">· {event.responsible}</span> : null}
+      </div>
     </div>
   );
 }
